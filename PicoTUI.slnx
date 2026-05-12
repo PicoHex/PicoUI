@@ -1,11 +1,14 @@
 <Solution>
   <Folder Name="/samples/">
     <File Path="samples\README.md" />
+    <Project Path="samples\HelloWorld\HelloWorld.csproj" />
   </Folder>
   <Folder Name="/src/">
     <File Path="src\README.md" />
+    <Project Path="src\PicoTUI.Core\PicoTUI.Core.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <File Path="tests\README.md" />
+    <Project Path="tests\PicoTUI.Core.Tests\PicoTUI.Core.Tests.csproj" />
   </Folder>
 </Solution>
