@@ -1,0 +1,16 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <IsAotCompatible>true</IsAotCompatible>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>PicoTUI</RootNamespace>
+    <AssemblyName>PicoTUI.Core</AssemblyName>
+    <Description>An AOT-first TUI (Terminal User Interface) framework for .NET</Description>
+    <Optimize>true</Optimize>
+  </PropertyGroup>
+
+</Project>
