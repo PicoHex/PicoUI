@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <IsAotCompatible>true</IsAotCompatible>
-    <LangVersion>preview</LangVersion>
+    <LangVersion>latest</LangVersion>
     <RootNamespace>PicoTUI</RootNamespace>
     <AssemblyName>PicoTUI.Core</AssemblyName>
     <Description>An AOT-first TUI (Terminal User Interface) framework for .NET</Description>
