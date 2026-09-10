@@ -40,6 +40,7 @@ jobs:
       - name: Run all tests
         shell: bash
         run: |
+          mkdir -p artifacts/nupkg
           dotnet test tests/PicoMarkdown.Tests/PicoMarkdown.Tests.csproj -c Release
           dotnet test tests/PicoMermaid.Tests/PicoMermaid.Tests.csproj -c Release
           dotnet test tests/PicoTui.Tests/PicoTui.Tests.csproj -c Release
