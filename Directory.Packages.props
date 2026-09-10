@@ -11,6 +11,9 @@
     <PackageVersion Include="PicoNode.Http" Version="2026.3.0" />
     <PackageVersion Include="PicoNode.Web" Version="2026.3.0" />
     <PackageVersion Include="PicoJetson" Version="2026.5.1" />
+    <!-- PicoHtmx.Sample runs on a full PicoWeb app (WebApp/WebServer); the
+         module itself deliberately does not reference PicoWeb. -->
+    <PackageVersion Include="PicoWeb" Version="2026.3.0" />
   </ItemGroup>
   <ItemGroup>
     <!-- Sibling PicoUI modules consumed as packages when

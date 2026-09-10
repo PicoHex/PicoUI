@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <!-- PicoWeb pulls PicoJetson into the graph; its source generator
+         requires AllowUnsafeBlocks (same as the PicoHtmx module). -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\PicoHtmx\PicoHtmx.csproj" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(UseSiblingProjectReferences)' == 'true'">
+    <ProjectReference Include="..\..\..\PicoNode\src\Web\PicoWeb\PicoWeb.csproj" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(UseSiblingProjectReferences)' != 'true'">
+    <PackageReference Include="PicoWeb" />
+  </ItemGroup>
+</Project>

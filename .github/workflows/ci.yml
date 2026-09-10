@@ -84,11 +84,30 @@ jobs:
       - name: Test PicoHtmx
         run: dotnet test --project tests/PicoHtmx.Tests/PicoHtmx.Tests.csproj -c Release --no-build
 
-      # Library-only repo: ILC on the src modules validates the AOT surface
-      # (the heaviest consumer, PicoAgent.Htmx, already AOT-publishes in the
-      # PicoAgent repo pipeline).
-      - name: AOT publish validation (PicoHtmx)
-        run: dotnet publish src/PicoHtmx/PicoHtmx.csproj -c Release -r ${{ matrix.rid }} -p:PublishAot=true
+      # AOT validation on the samples: full ILC publish + native link, plus
+      # a run smoke for the pure-compute samples (linux-x64 only).
+      - name: AOT publish validation (PicoMarkdown.Sample)
+        run: dotnet publish samples/PicoMarkdown.Sample/PicoMarkdown.Sample.csproj -c Release -r ${{ matrix.rid }} -p:PublishAot=true
 
-      - name: AOT publish validation (PicoTui)
-        run: dotnet publish src/PicoTui/PicoTui.csproj -c Release -r ${{ matrix.rid }} -p:PublishAot=true
+      - name: AOT publish validation (PicoMermaid.Sample)
+        run: dotnet publish samples/PicoMermaid.Sample/PicoMermaid.Sample.csproj -c Release -r ${{ matrix.rid }} -p:PublishAot=true
+
+      - name: AOT publish validation (PicoTui.Sample)
+        run: dotnet publish samples/PicoTui.Sample/PicoTui.Sample.csproj -c Release -r ${{ matrix.rid }} -p:PublishAot=true
+
+      - name: AOT publish validation (PicoHtmx.Sample)
+        run: dotnet publish samples/PicoHtmx.Sample/PicoHtmx.Sample.csproj -c Release -r ${{ matrix.rid }} -p:PublishAot=true
+
+      - name: Run AOT-published Markdown sample (linux-x64 smoke)
+        if: matrix.rid == 'linux-x64'
+        shell: bash
+        run: |
+          PUBLISH_DIR=$(ls -d samples/PicoMarkdown.Sample/bin/Release/*/linux-x64/publish | head -n 1)
+          "$PUBLISH_DIR/PicoMarkdown.Sample"
+
+      - name: Run AOT-published Mermaid sample (linux-x64 smoke)
+        if: matrix.rid == 'linux-x64'
+        shell: bash
+        run: |
+          PUBLISH_DIR=$(ls -d samples/PicoMermaid.Sample/bin/Release/*/linux-x64/publish | head -n 1)
+          "$PUBLISH_DIR/PicoMermaid.Sample"

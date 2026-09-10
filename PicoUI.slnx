@@ -1,6 +1,10 @@
 <Solution>
   <Folder Name="/samples/">
     <File Path="samples\README.md" />
+    <Project Path="samples/PicoMarkdown.Sample/PicoMarkdown.Sample.csproj" />
+    <Project Path="samples/PicoMermaid.Sample/PicoMermaid.Sample.csproj" />
+    <Project Path="samples/PicoTui.Sample/PicoTui.Sample.csproj" />
+    <Project Path="samples/PicoHtmx.Sample/PicoHtmx.Sample.csproj" />
   </Folder>
   <Folder Name="/src/">
     <File Path="src\README.md" />
