@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsAotCompatible>true</IsAotCompatible>
+    <IsTrimmable>true</IsTrimmable>
+    <IsPackable>true</IsPackable>
+    <PackageId>PicoTui</PackageId>
+    <Description>Zero-dependency, AOT-safe terminal UI framework for terminal front-ends. Cell-buffer differential rendering, flexbox-subset layout, key decoding, and a serial-core event loop.</Description>
+    <PackageTags>PicoHex;PicoTui;TUI;Terminal;AOT</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <!-- PicoMarkdown / PicoMermaid are sibling modules: project refs for
+       local development (UseProjectReferences=true), packages otherwise
+       (release pack + consumers). -->
+  <ItemGroup Condition="'$(UseProjectReferences)' == 'true'">
+    <ProjectReference Include="..\PicoMarkdown\PicoMarkdown.csproj" />
+    <ProjectReference Include="..\PicoMermaid\PicoMermaid.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UseProjectReferences)' != 'true'">
+    <PackageReference Include="PicoMarkdown" />
+    <PackageReference Include="PicoMermaid" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="" Visible="false" />
+  </ItemGroup>
+</Project>

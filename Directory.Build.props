@@ -1,0 +1,47 @@
+<Project>
+  <!-- ═══════════════════════════════════════════════════════
+       PicoUI shared build properties
+       ═══════════════════════════════════════════════════════ -->
+
+  <PropertyGroup>
+    <!-- Default version for local / non-CI builds -->
+    <Version Condition="'$(Version)' == ''">0.0.0-dev</Version>
+
+    <!-- Central Package Management -->
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+
+    <!-- Deterministic builds when CI=true -->
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+
+    <!-- Analyzer + style enforcement, warnings as errors -->
+    <AnalysisLevel>latest</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+
+    <!-- Symbol packages for NuGet.org debugging experience -->
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <DebugType>portable</DebugType>
+
+    <!-- Default: use project references for local dev -->
+    <UseProjectReferences Condition="'$(UseProjectReferences)' == ''">true</UseProjectReferences>
+
+    <!-- PicoHtmx references PicoWeb (PicoNode repo, network/web stack):
+         sibling project ref when the PicoNode repo is checked out next to
+         this one (local dev / CI); published package otherwise. -->
+    <UseSiblingProjectReferences
+      Condition="'$(UseSiblingProjectReferences)' == '' and '$(UseProjectReferences)' == 'true' and Exists('$(MSBuildThisFileDirectory)..\PicoNode\src\Web\PicoWeb\PicoWeb.csproj')"
+      >true</UseSiblingProjectReferences>
+    <UseSiblingProjectReferences Condition="'$(UseSiblingProjectReferences)' == ''"
+      >false</UseSiblingProjectReferences>
+
+    <!-- Default: don't pack unless opted in -->
+    <IsPackable Condition="'$(IsPackable)' == ''">false</IsPackable>
+
+    <!-- PicoJetson (≥ 2026.4) generates unsafe code paths; the PicoUI
+         modules that serialize with it require the flag. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+</Project>

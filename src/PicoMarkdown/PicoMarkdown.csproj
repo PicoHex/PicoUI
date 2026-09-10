@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsAotCompatible>true</IsAotCompatible>
+    <IsTrimmable>true</IsTrimmable>
+    <IsPackable>true</IsPackable>
+    <PackageId>PicoMarkdown</PackageId>
+    <RootNamespace>PicoMarkdown</RootNamespace>
+    <Description>Zero-dependency, AOT-safe markdown parsing core — pure Markdown.Parse to a bounded AST with single-pass progressive metadata (LastStableLine) for streaming consumers.</Description>
+    <PackageTags>PicoHex;PicoMarkdown;Markdown;AOT</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="" Visible="false" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,21 @@
+<Solution>
+  <Folder Name="/samples/">
+    <File Path="samples\README.md" />
+  </Folder>
+  <Folder Name="/src/">
+    <File Path="src\README.md" />
+    <Project Path="src/PicoMarkdown/PicoMarkdown.csproj" />
+    <Project Path="src/PicoMermaid/PicoMermaid.csproj" />
+    <Project Path="src/PicoTui/PicoTui.csproj" />
+    <Project Path="src/PicoHtmx/PicoHtmx.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <File Path="tests\README.md" />
+    <Project Path="tests/PicoMarkdown.Tests/PicoMarkdown.Tests.csproj" />
+    <Project Path="tests/PicoMermaid.Tests/PicoMermaid.Tests.csproj" />
+    <Project Path="tests/PicoTui.Tests/PicoTui.Tests.csproj" />
+    <Project Path="tests/PicoHtmx.Tests/PicoHtmx.Tests.csproj" />
+  </Folder>
+
+
+</Solution>

@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        rid: [win-x64, win-arm64, linux-x64, linux-arm64, osx-arm64]
+        include:
+          - rid: win-x64
+            os: windows-latest
+          - rid: win-arm64
+            os: windows-11-arm
+          - rid: linux-x64
+            os: ubuntu-latest
+          - rid: linux-arm64
+            os: ubuntu-24.04-arm
+          - rid: osx-arm64
+            os: macos-latest
+
+    runs-on: ${{ matrix.os }}
+    name: build ${{ matrix.rid }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # PicoHtmx references PicoWeb as a sibling project when the PicoNode
+      # repo is checked out next to this one (same layout as local dev and
+      # as the PicoAgent/PicoActor/PicoNode sibling-checkout convention).
+      - name: Checkout PicoNode (sibling)
+        uses: actions/checkout@v4
+        with:
+          repository: PicoHex/PicoNode
+          path: ../PicoNode
+          fetch-depth: 1
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install Linux AOT prerequisites
+        if: startsWith(matrix.rid, 'linux-')
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang zlib1g-dev
+
+      - name: Restore
+        run: |
+          mkdir -p artifacts/nupkg
+          dotnet restore PicoUI.slnx
+
+      - name: Build
+        run: dotnet build PicoUI.slnx --no-restore -c Release
+
+      - name: Test PicoMarkdown
+        run: dotnet test --project tests/PicoMarkdown.Tests/PicoMarkdown.Tests.csproj -c Release --no-build
+
+      - name: Test PicoMermaid
+        run: dotnet test --project tests/PicoMermaid.Tests/PicoMermaid.Tests.csproj -c Release --no-build
+
+      - name: Test PicoTui
+        run: dotnet test --project tests/PicoTui.Tests/PicoTui.Tests.csproj -c Release --no-build
+
+      - name: Test PicoHtmx
+        run: dotnet test --project tests/PicoHtmx.Tests/PicoHtmx.Tests.csproj -c Release --no-build
+
+      # Library-only repo: ILC on the src modules validates the AOT surface
+      # (the heaviest consumer, PicoAgent.Htmx, already AOT-publishes in the
+      # PicoAgent repo pipeline).
+      - name: AOT publish validation (PicoHtmx)
+        run: dotnet publish src/PicoHtmx/PicoHtmx.csproj -c Release -r ${{ matrix.rid }} -p:PublishAot=true
+
+      - name: AOT publish validation (PicoTui)
+        run: dotnet publish src/PicoTui/PicoTui.csproj -c Release -r ${{ matrix.rid }} -p:PublishAot=true

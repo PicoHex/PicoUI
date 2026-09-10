@@ -1,0 +1,122 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+
+jobs:
+  pack:
+    name: Pack packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Parse version from tag
+        id: version
+        shell: bash
+        run: |
+          ref_name="${GITHUB_REF_NAME}"
+          echo "version=${ref_name#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Run all tests
+        shell: bash
+        run: |
+          dotnet test tests/PicoMarkdown.Tests/PicoMarkdown.Tests.csproj -c Release
+          dotnet test tests/PicoMermaid.Tests/PicoMermaid.Tests.csproj -c Release
+          dotnet test tests/PicoTui.Tests/PicoTui.Tests.csproj -c Release
+          dotnet test tests/PicoHtmx.Tests/PicoHtmx.Tests.csproj -c Release
+
+      - name: Pack all packages
+        shell: bash
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          NUPKG_DIR="$GITHUB_WORKSPACE/artifacts/nupkg"
+          rm -rf ./artifacts/nupkg
+          mkdir -p ./artifacts/nupkg
+
+          # ---- Phase 1: zero-dependency cores ----
+          dotnet pack src/PicoMarkdown/PicoMarkdown.csproj \
+            -c Release -o "$NUPKG_DIR" -p:Version="$VERSION"
+
+          dotnet pack src/PicoMermaid/PicoMermaid.csproj \
+            -c Release -o "$NUPKG_DIR" -p:Version="$VERSION"
+
+          # ---- Phase 2: depends on Phase-1 packages ----
+          dotnet pack src/PicoTui/PicoTui.csproj \
+            -c Release -o "$NUPKG_DIR" -p:Version="$VERSION" \
+            -p:UseProjectReferences=false \
+            -p:RestoreAdditionalProjectSources="$NUPKG_DIR"
+
+          # ---- Phase 3: depends on PicoWeb (nuget.org) ----
+          dotnet pack src/PicoHtmx/PicoHtmx.csproj \
+            -c Release -o "$NUPKG_DIR" -p:Version="$VERSION" \
+            -p:UseProjectReferences=false
+
+      - name: Upload package artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nupkg
+          path: |
+            ./artifacts/nupkg/*.nupkg
+            ./artifacts/nupkg/*.snupkg
+
+  publish:
+    name: Publish ${{ needs.pack.outputs.version || github.ref_name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: pack
+    environment: release
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download package artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: nupkg
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Publish packages to NuGet
+        shell: bash
+        run: |
+          shopt -s nullglob
+          for file in *.nupkg; do
+            if [[ "$file" != *.snupkg ]] && [[ "$file" != *.symbols.nupkg ]]; then
+              dotnet nuget push "$file" \
+                --api-key "${{ secrets.NUGET_API_KEY }}" \
+                --source https://api.nuget.org/v3/index.json \
+                --skip-duplicate
+            fi
+          done
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            *.nupkg
+            *.snupkg

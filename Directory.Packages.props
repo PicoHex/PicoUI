@@ -1,0 +1,21 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageVersion Include="TUnit" Version="1.65.51" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- PicoHtmx depends on PicoNode.Http + PicoNode.Web (PicoNode repo,
+         network/web layers; deliberately not PicoWeb — see PicoHtmx.csproj). -->
+    <PackageVersion Include="PicoNode.Http" Version="2026.3.0" />
+    <PackageVersion Include="PicoNode.Web" Version="2026.3.0" />
+    <PackageVersion Include="PicoJetson" Version="2026.5.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Sibling PicoUI modules consumed as packages when
+         UseProjectReferences=false (release pack path). -->
+    <PackageVersion Include="PicoMarkdown" Version="2026.9.0" />
+    <PackageVersion Include="PicoMermaid" Version="2026.9.0" />
+  </ItemGroup>
+</Project>
