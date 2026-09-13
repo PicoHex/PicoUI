@@ -1,5 +1,3 @@
-using PicoMermaid;
-
 const string SampleSource = """
     flowchart TD
         A[Parse] --> B{Renderable?}

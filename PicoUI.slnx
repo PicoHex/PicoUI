@@ -20,6 +20,4 @@
     <Project Path="tests/PicoTui.Tests/PicoTui.Tests.csproj" />
     <Project Path="tests/PicoHtmx.Tests/PicoHtmx.Tests.csproj" />
   </Folder>
-
-
 </Solution>

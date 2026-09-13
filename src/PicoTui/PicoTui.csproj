@@ -30,4 +30,8 @@
   <ItemGroup>
     <None Include="..\..\README.md" Pack="true" PackagePath="" Visible="false" />
   </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="PicoTui.Tests" />
+  </ItemGroup>
 </Project>

@@ -1,5 +1,3 @@
-using PicoMarkdown;
-
 const string SampleSource = """
     # PicoMarkdown
 

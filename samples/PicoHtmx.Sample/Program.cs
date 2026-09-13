@@ -1,10 +1,3 @@
-using System.Net;
-using PicoDI;
-using PicoHtmx;
-using PicoNode.Http;
-using PicoNode.Web;
-using PicoWeb;
-
 // PicoHtmx usage sample: a server-rendered htmx page on PicoWeb.
 // GET /                     full page (Layout.Page + Layout.AppShell)
 // GET /fragments/hello      htmx fragment (bare HTML for swaps)

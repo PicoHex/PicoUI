@@ -3,7 +3,6 @@ namespace PicoTui.Loop;
 public sealed class UiLoop
 {
     private readonly Channel<UiEvent> _channel = Channel.CreateUnbounded<UiEvent>();
-    private readonly ITerminal _terminal;
     private readonly ScreenRenderer _screen;
     private IComponent? _root;
     private TimeSpan _frameInterval = TimeSpan.FromMilliseconds(33);
@@ -12,7 +11,6 @@ public sealed class UiLoop
 
     public UiLoop(ITerminal terminal)
     {
-        _terminal = terminal;
         _screen = new ScreenRenderer(terminal);
     }
 

@@ -1,8 +1,3 @@
-using PicoTui;
-using PicoTui.Layout;
-using PicoTui.Loop;
-using PicoTui.Terminal;
-
 // PicoTui usage sample: a tiny status UI. Requires a terminal; exits cleanly
 // when stdin is redirected (CI / pipes). Dismisses itself after 3 seconds.
 if (Console.IsInputRedirected)
