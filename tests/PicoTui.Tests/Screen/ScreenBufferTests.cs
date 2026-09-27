@@ -28,7 +28,7 @@ public sealed class ScreenBufferTests
         b.Resize(1, 1);
         var copy = b.CopyForDiff();
         b.Set(0, 0, new Cell('Y', default));
-        await Assert.That(copy.Get(0, 0).Ch).IsEqualTo('\0');
+        await Assert.That(copy.Get(0, 0)).IsEqualTo(Cell.Blank);
         await Assert.That(b.Get(0, 0).Ch).IsEqualTo('Y');
     }
 }

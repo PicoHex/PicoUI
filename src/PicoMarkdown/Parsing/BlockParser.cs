@@ -4,7 +4,13 @@ internal static class BlockParser
 {
     private const int MaxBlockDepth = 32;
 
-    private sealed record ListRow(int Indent, bool Ordered, int StartNumber, string Content);
+    private sealed record ListRow(
+        int Indent,
+        bool Ordered,
+        int StartNumber,
+        string Content,
+        int Line
+    );
 
     public static BlockParseResult Parse(string source) => ParseBlocks(source, 0);
 
@@ -14,13 +20,21 @@ internal static class BlockParser
         if (depth > MaxBlockDepth)
         {
             // bomb guard: stop recursing; emit the remainder as literal paragraphs
-            foreach (var l in source.Split('\n'))
-                if (l.Trim().Length > 0)
-                    blocks.Add(new Paragraph(InlineParser.Parse(l.Trim())));
+            var bombLines = source.Split('\n');
+            for (var li = 0; li < bombLines.Length; li++)
+                if (bombLines[li].Trim().Length > 0)
+                    blocks.Add(
+                        new Paragraph(InlineParser.Parse(bombLines[li].Trim()))
+                        {
+                            StartLine = li,
+                            EndLine = li,
+                        }
+                    );
             return new BlockParseResult(blocks, 0);
         }
         var lines = source.Split('\n');
         var paraLines = new List<string>();
+        var paraStart = 0;
         var listRows = new List<ListRow>();
         var inList = false;
         var lastStableLine = 0;
@@ -65,7 +79,7 @@ internal static class BlockParser
 
             if (i + 1 < lines.Length && IsTableSeparator(lines[i + 1]))
             {
-                FlushParagraph(blocks, paraLines);
+                FlushParagraph(blocks, paraLines, paraStart, i - 1);
                 if (inList)
                 {
                     blocks.Add(BuildList(listRows, depth));
@@ -105,7 +119,7 @@ internal static class BlockParser
 
             if (IsHr(line))
             {
-                FlushParagraph(blocks, paraLines);
+                FlushParagraph(blocks, paraLines, paraStart, i - 1);
                 if (inList)
                 {
                     blocks.Add(BuildList(listRows, depth));
@@ -127,12 +141,14 @@ internal static class BlockParser
                 )
             )
             {
+                // a paragraph immediately before a list is emitted first (source order)
+                FlushParagraph(blocks, paraLines, paraStart, i - 1);
                 if (!inList)
                 {
                     listRows.Clear();
                     inList = true;
                 }
-                listRows.Add(new ListRow(indent, ordered, startNumber, content));
+                listRows.Add(new ListRow(indent, ordered, startNumber, content, i));
                 continue;
             }
 
@@ -148,14 +164,14 @@ internal static class BlockParser
 
             if (line.Trim().Length == 0)
             {
-                FlushParagraph(blocks, paraLines);
+                FlushParagraph(blocks, paraLines, paraStart, i - 1);
                 lastStableLine = i; // blank line closes the paragraph
                 continue;
             }
 
             if (TryParseHeading(line, i, out var heading))
             {
-                FlushParagraph(blocks, paraLines);
+                FlushParagraph(blocks, paraLines, paraStart, i - 1);
                 blocks.Add(heading);
                 lastStableLine = i; // heading closes on its own line
                 continue;
@@ -163,14 +179,14 @@ internal static class BlockParser
 
             if (TryParseFenceOpen(line, out fenceMarker, out fenceLang))
             {
-                FlushParagraph(blocks, paraLines);
+                FlushParagraph(blocks, paraLines, paraStart, i - 1);
                 fenceStart = i;
                 continue; // open fence: NO stability advance
             }
 
             if (line.TrimStart().StartsWith(">"))
             {
-                FlushParagraph(blocks, paraLines);
+                FlushParagraph(blocks, paraLines, paraStart, i - 1);
                 var quoteLines = new List<string> { StripQuote(line) };
                 var j = i + 1;
                 while (j < lines.Length && lines[j].TrimStart().StartsWith(">"))
@@ -190,6 +206,8 @@ internal static class BlockParser
                 continue;
             }
 
+            if (paraLines.Count == 0)
+                paraStart = i;
             paraLines.Add(line);
         }
 
@@ -213,7 +231,7 @@ internal static class BlockParser
         }
         else
         {
-            FlushParagraph(blocks, paraLines);
+            FlushParagraph(blocks, paraLines, paraStart, lines.Length - 1);
             // trailing paragraph without a blank line: NOT stable
         }
 
@@ -322,17 +340,39 @@ internal static class BlockParser
                 rows[0].Ordered,
                 rows[0].StartNumber,
                 rows.Select(r =>
-                        (ListItem)new ListItem([new Paragraph(InlineParser.Parse(r.Content))])
+                        (ListItem)
+                            new ListItem([
+                                new Paragraph(InlineParser.Parse(r.Content))
+                                {
+                                    StartLine = r.Line,
+                                    EndLine = r.Line,
+                                },
+                            ])
+                            {
+                                StartLine = r.Line,
+                                EndLine = r.Line,
+                            }
                     )
                     .ToList()
-            );
+            )
+            {
+                StartLine = rows[0].Line,
+                EndLine = rows[^1].Line,
+            };
         }
         var items = new List<ListItem>();
         var i = 0;
         while (i < rows.Count)
         {
             var row = rows[i];
-            var blocks = new List<BlockNode> { new Paragraph(InlineParser.Parse(row.Content)) };
+            var blocks = new List<BlockNode>
+            {
+                new Paragraph(InlineParser.Parse(row.Content))
+                {
+                    StartLine = row.Line,
+                    EndLine = row.Line,
+                },
+            };
             var j = i + 1;
             if (j < rows.Count && rows[j].Indent > row.Indent)
             {
@@ -344,11 +384,15 @@ internal static class BlockParser
                 }
                 blocks.Add(BuildList(nested, depth + 1));
             }
-            items.Add(new ListItem(blocks));
+            items.Add(new ListItem(blocks) { StartLine = row.Line, EndLine = rows[j - 1].Line });
             i = j;
         }
         var first = rows[0];
-        return new List(first.Ordered, first.StartNumber, items);
+        return new List(first.Ordered, first.StartNumber, items)
+        {
+            StartLine = rows[0].Line,
+            EndLine = rows[^1].Line,
+        };
     }
 
     private static bool TryParseFenceOpen(string line, out string? marker, out string? lang)
@@ -400,11 +444,22 @@ internal static class BlockParser
         return true;
     }
 
-    private static void FlushParagraph(List<BlockNode> blocks, List<string> paraLines)
+    private static void FlushParagraph(
+        List<BlockNode> blocks,
+        List<string> paraLines,
+        int startLine,
+        int endLine
+    )
     {
         if (paraLines.Count == 0)
             return;
-        blocks.Add(new Paragraph(InlineParser.Parse(string.Join(' ', paraLines))));
+        blocks.Add(
+            new Paragraph(InlineParser.Parse(string.Join('\n', paraLines)))
+            {
+                StartLine = startLine,
+                EndLine = endLine,
+            }
+        );
         paraLines.Clear();
     }
 }

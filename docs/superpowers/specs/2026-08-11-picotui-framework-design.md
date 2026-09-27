@@ -112,11 +112,16 @@ Both wrap updates in synchronized output.
 ### 4.1 Data model
 
 ```csharp
-readonly record struct Cell(char Ch, Style Style);
+// one cell per column (wide runes occupy two columns: the rune + a continuation marker)
+readonly record struct Cell(int Rune, Style Style, bool Continuation = false);
+static readonly Cell Blank; // space, no attributes
 struct Style { bool Bold, Italic, Underline, Reverse; RgbColor? Fg; RgbColor? Bg; }
 sealed class Line { Cell[] Cells; }
-sealed class ScreenBuffer { Line[] Lines; }   // double-buffered: prev / next
+sealed class ScreenBuffer { Line[] Lines; }   // prev / next; no copy when the diff is empty
 ```
+
+NUL is never a cell value: buffers are blank-filled, and content control
+characters are neutralized when cells are written.
 
 ### 4.2 Diff algorithm (line-level)
 
@@ -242,6 +247,11 @@ implementation is a proven reference.
 - Drives cursor positioning / line width (`CJK`=2 cols, emoji variants, combining
   chars=0)
 - Shared with the Screen layer (`VisibleWidth` / `TruncateToWidth` utilities)
+- Zero-width set today: combining marks, joiners (ZWJ/ZWNJ), zero-width spaces,
+  LRM/RLM, word joiner, BOM and the variation selectors (`WidthTable.IsZeroWidth`)
+- Known limits: VS16 does not widen a narrow emoji base, and ZWJ sequences are
+  not measured as one grapheme cluster (the screen model renders them as their
+  separate emoji, which keeps glyph output consistent with the column model)
 
 ### 5.7 Edge cases
 
@@ -451,8 +461,9 @@ only accepts results with `version >= current`, discarding stale ones.
 
 ```
 after processing a batch of events:
-  if now − lastRender ≥ frameInterval (30fps ≈ 33ms) → render
-  else → wait for the next frame
+  the frame timer wakes the loop at every frameInterval and the wake reason
+  commits the frame (an early event wake only drains the batch)
+  → state is rendered within one frame even without Post/RequestRender
 ```
 
 High-frequency streaming deltas merge into the frame; `Screen.diff` sees only

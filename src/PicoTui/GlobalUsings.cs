@@ -1,4 +1,5 @@
 // Global usings — shared across the whole project (file-level usings are
+global using System.Diagnostics;
 global using System.Runtime.CompilerServices;
 global using System.Runtime.InteropServices;
 global using System.Text;

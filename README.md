@@ -2,7 +2,10 @@
 
 **AOT-first UI & rendering toolkit for .NET** — server-rendered HTML/HTMX
 tooling, terminal UI, and the markdown/mermaid rendering cores behind them.
-Every module compiles to NativeAOT with zero runtime reflection.
+Every module compiles to NativeAOT. The only runtime reflection in the stack is
+PicoHtmx's attribute writer, whose property preservation is guaranteed by
+`[DynamicallyAccessedMembers]` at every call site (no reflection-based
+serialization, no runtime code generation).
 
 ## Modules
 
@@ -11,12 +14,14 @@ Every module compiles to NativeAOT with zero runtime reflection.
 | **PicoMarkdown** | Zero-dependency, AOT-safe markdown parsing core (bounded AST + streaming metadata) | `PicoMarkdown` |
 | **PicoMermaid** | Zero-dependency Mermaid diagram renderer (flowchart subset) | `PicoMermaid` |
 | **PicoTui** | Terminal UI framework on PicoMarkdown + PicoMermaid | `PicoTui` |
-| **PicoHtmx** | AOT-safe HTML + HTMX toolkit for PicoWeb (server-rendered components, htmx response helpers) | `PicoHtmx` |
+| **PicoHtmx** | AOT-safe HTML + HTMX toolkit for PicoWeb apps (server-rendered components, htmx response helpers) | `PicoHtmx` |
 
 Each module is **independent** — use one, some, or all. `PicoHtmx` is the only
-module with an external dependency: `PicoWeb` (PicoNode repo, web-app layer).
-Local development uses sibling project references when `../PicoNode` is
-checked out; otherwise the published `PicoWeb` package is used.
+module with external dependencies: `PicoNode.Http` + `PicoNode.Web` (PicoNode
+repo, HTTP/web layers; deliberately not `PicoWeb`, which injects source
+generators into every consumer) plus `PicoJetson` for JSON writing. Local
+development uses sibling project references when `../PicoNode` is checked out;
+otherwise the published packages are used.
 
 ## Quick Start
 

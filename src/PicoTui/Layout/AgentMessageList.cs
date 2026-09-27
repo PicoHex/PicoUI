@@ -10,6 +10,7 @@ public sealed class AgentMessageList : IComponent
     {
         _rows.Add(new Text(text));
         _tail = null;
+        _tailText = "";
     }
 
     public void AppendAssistantText(string delta)
@@ -28,6 +29,7 @@ public sealed class AgentMessageList : IComponent
         var tb = new ThinkingBlock();
         _rows.Add(tb);
         _tail = tb;
+        _tailText = "";
         return tb;
     }
 
@@ -36,6 +38,7 @@ public sealed class AgentMessageList : IComponent
         var w = new ToolCallWidget();
         _rows.Add(w);
         _tail = w;
+        _tailText = "";
         return w;
     }
 

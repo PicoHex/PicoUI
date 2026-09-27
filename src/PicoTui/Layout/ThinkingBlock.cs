@@ -19,7 +19,7 @@ public sealed class ThinkingBlock : IComponent
         if (Collapsed)
             return [$"▸ thinking ({bodyLines.Length} lines)"];
         var result = new List<string> { "▸ thinking" };
-        result.AddRange(bodyLines.Select(l => l.Length > width ? l[..width] : l));
+        result.AddRange(bodyLines.Select(l => WidthTable.TruncateToWidth(l, width)));
         return [.. result];
     }
 

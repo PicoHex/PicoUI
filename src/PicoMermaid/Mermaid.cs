@@ -4,6 +4,7 @@ public static class Mermaid
 {
     public static MermaidArt Render(string source, int maxWidth)
     {
+        maxWidth = Math.Max(0, maxWidth); // callers may hand us a computed 0/negative width
         var warnings = new List<string>();
         var lines = source.Split('\n');
         var diagram = lines.Length > 0 ? lines[0].Trim() : "";
@@ -118,12 +119,25 @@ public static class Mermaid
 
     private static MermaidArt Fallback(string[] lines, int maxWidth, List<string> warnings)
     {
-        var rows = lines.Select(l => l.Length > maxWidth ? l[..maxWidth] : l).ToArray();
+        var rows = lines.Select(l => Truncate(l, maxWidth)).ToArray();
         return new MermaidArt(
             rows,
             Math.Max(0, rows.Length == 0 ? 0 : rows.Max(WidthTable)),
             warnings
         );
+    }
+
+    /// <summary>Truncation that never splits a UTF-16 surrogate pair.</summary>
+    private static string Truncate(string s, int max)
+    {
+        if (max <= 0)
+            return "";
+        if (s.Length <= max)
+            return s;
+        var cut = max;
+        if (char.IsHighSurrogate(s[cut - 1]))
+            cut--;
+        return s[..cut];
     }
 
     private static int WidthTable(string s) => s.Length; // v1: ASCII width; CJK refinement later

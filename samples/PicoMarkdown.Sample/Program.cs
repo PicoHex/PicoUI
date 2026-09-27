@@ -69,6 +69,8 @@ static string InlineText(IReadOnlyList<InlineNode> inlines) =>
             i switch
             {
                 Text t => t.Value,
+                SoftBreak => " ",
+                HardBreak => "\n",
                 InlineCode c => $"`{c.Code}`",
                 Link link => $"({link.Url})",
                 _ => "[i]",

@@ -9,9 +9,13 @@ public static class Ux
         string emptyMsg = "No items"
     )
     {
-        var list = items.Any()
-            ? string.Join("", items.Select(renderItem))
-            : H.Div(H.E(emptyMsg), new { @class = "empty" });
+        var rendered = new List<string>();
+        foreach (var item in items)
+            rendered.Add(renderItem(item));
+        var list =
+            rendered.Count > 0
+                ? string.Join("", rendered)
+                : H.Div(H.E(emptyMsg), new { @class = "empty" });
         return $"""
             <div class="list-page">
                 <div class="list-header">{H.E(title)}</div>

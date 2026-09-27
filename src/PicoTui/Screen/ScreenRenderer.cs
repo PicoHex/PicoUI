@@ -5,12 +5,20 @@ namespace PicoTui.Screen;
 /// diff against the previous frame → minimal ANSI output (synchronized).
 /// This is the only writer to the terminal during normal frames.
 /// </summary>
+/// <remarks>Zero-width runes (combining marks, joiners, variation selectors) get
+/// no cell, so the emitted glyphs match the column model (a ZWJ emoji sequence
+/// renders as its separate emoji rather than a ligature).</remarks>
 public sealed class ScreenRenderer
 {
     private readonly ITerminal _terminal;
     private ScreenBuffer? _prev;
 
     public ScreenRenderer(ITerminal terminal) => _terminal = terminal;
+
+    /// <summary>Neutralizes control characters coming from rendered content:
+    /// untrusted text (LLM/tool output) must not inject terminal escapes.</summary>
+    internal static int NeutralizeRune(int rune) =>
+        rune <= char.MaxValue && char.IsControl((char)rune) ? ' ' : rune;
 
     public void Render(IComponent root)
     {
@@ -23,10 +31,20 @@ public sealed class ScreenRenderer
         for (var r = 0; r < height; r++)
         {
             var text = r < lines.Length ? lines[r] : "";
-            if (text.Length > width)
-                text = text[..width];
-            for (var c = 0; c < text.Length; c++)
-                next.Set(r, c, new Cell(text[c], default));
+            var col = 0;
+            foreach (var rune in text.EnumerateRunes())
+            {
+                if (col >= width)
+                    break;
+                if (WidthTable.IsZeroWidth(rune.Value))
+                    continue; // zero-width rune: no cell of its own
+                var used = next.WriteRune(r, col, NeutralizeRune(rune.Value), default);
+                if (used == 0)
+                    break; // a wide rune with one column left cannot be shown
+                col += used;
+            }
+            for (; col < width; col++)
+                next.Set(r, col, Cell.Blank);
         }
 
         if (_prev is null)
@@ -39,10 +57,7 @@ public sealed class ScreenRenderer
 
         var diff = DiffRenderer.Compute(_prev, next);
         if (diff.FirstDiffLine < 0)
-        {
-            _prev = next.CopyForDiff();
-            return;
-        }
+            return; // identical frame: _prev already equals next, a clone would be wasted
 
         string body;
         if (diff.NeedsFullRedraw)

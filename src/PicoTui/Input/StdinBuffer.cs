@@ -3,6 +3,7 @@ namespace PicoTui.Input;
 public sealed class StdinBuffer
 {
     private readonly List<byte> _pending = [];
+    private readonly Queue<string> _pushedBack = new();
     private bool _pasteMode;
 
     public void SetPasteMode(bool on) => _pasteMode = on;
@@ -16,6 +17,8 @@ public sealed class StdinBuffer
     public IEnumerable<string> Drain()
     {
         var result = new List<string>();
+        while (_pushedBack.Count > 0)
+            result.Add(_pushedBack.Dequeue());
         while (_pending.Count > 0)
         {
             var first = _pending[0];
@@ -74,10 +77,11 @@ public sealed class StdinBuffer
     public async Task<string> FlushEscAsync(TimeSpan timeout)
     {
         await Task.Delay(timeout);
-        if (_pending.Count == 0)
-            return "\x1b";
-        var seq = Drain().ToArray();
-        return seq.Length > 0 ? seq[0] : "\x1b";
+        // keep every decoded unit: return the first, queue the rest for Drain()
+        if (_pending.Count > 0)
+            foreach (var unit in Drain())
+                _pushedBack.Enqueue(unit);
+        return _pushedBack.Count > 0 ? _pushedBack.Dequeue() : "\x1b";
     }
 
     private int EscapeSequenceLength()

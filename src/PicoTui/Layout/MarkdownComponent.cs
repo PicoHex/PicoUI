@@ -11,18 +11,49 @@ namespace PicoTui.Layout;
 public sealed class MarkdownComponent : IComponent
 {
     private string _source = "";
+    private MarkdownDocument? _doc;
+    private string[]? _rendered;
+    private int _version;
+    private int _docVersion = -1;
+    private int _renderedVersion = -1;
+    private int _renderedWidth = -1;
+
+    /// <summary>Number of <see cref="Markdown.Parse"/> calls (test observability for the render cache).</summary>
+    internal int ParseCount { get; private set; }
 
     public MarkdownComponent(string source) => _source = source;
 
     public void SetText(string source)
     {
         _source = source;
+        _version++;
         Invalidate();
     }
 
+    /// <summary>Memoized render (source version + width keyed). The returned array is
+    /// cached — treat it as read-only.</summary>
     public string[] Render(int width)
     {
-        var doc = Markdown.Parse(_source);
+        if (width <= 0)
+            return [];
+        // memoized: the AST is width independent, the wrapped lines are width keyed
+        if (_rendered is not null && _renderedWidth == width && _renderedVersion == _version)
+            return _rendered;
+        if (_doc is null || _docVersion != _version)
+        {
+            _doc = Markdown.Parse(_source);
+            _docVersion = _version;
+            ParseCount++;
+        }
+        var lines = RenderDocument(_doc, width);
+        _rendered = lines;
+        _renderedWidth = width;
+        _renderedVersion = _version;
+        return lines;
+    }
+
+    private static string[] RenderDocument(MarkdownDocument doc, int width)
+    {
         var lines = new List<string>();
         foreach (var block in doc.Blocks)
             RenderBlock(block, lines, width);
@@ -41,7 +72,9 @@ public sealed class MarkdownComponent : IComponent
                 lines.AddRange(InlineText(h.Inlines, width, prefix + " "));
                 break;
             case FencedCode c:
-                lines.AddRange(c.Code.Split('\n').Select(l => l.Length > width ? l[..width] : l));
+                lines.AddRange(
+                    c.Code.Split('\n').Select(l => WidthTable.TruncateToWidth(l, width))
+                );
                 break;
             case List l:
                 var n = 0;
@@ -71,13 +104,13 @@ public sealed class MarkdownComponent : IComponent
                 lines.AddRange(quoteLines.Select(s => "> " + s));
                 break;
             case Hr:
-                lines.Add(new string('─', Math.Min(width, 40)));
+                lines.Add(new string('─', Math.Max(0, Math.Min(width, 40))));
                 break;
             case Table t:
                 foreach (var row in t.Rows)
                 {
                     var cells = row.Cells.Select(c =>
-                        string.Join("", InlineText(c.Inlines, int.MaxValue))
+                        string.Join("", InlineText(c.Inlines, int.MaxValue)).Replace('\n', ' ')
                     );
                     lines.Add(string.Join(" | ", cells));
                     if (row.IsHeader)
@@ -119,10 +152,18 @@ public sealed class MarkdownComponent : IComponent
                 case Image img:
                     sb.Append($"[{img.Alt}]");
                     break;
+                case SoftBreak:
+                    sb.Append(' ');
+                    break;
+                case HardBreak:
+                    sb.Append('\n');
+                    break;
             }
         }
         var text = sb.ToString();
-        yield return text.Length > width ? text[..width] : text;
+        foreach (var segment in text.Split('\n'))
+        foreach (var line in WidthTable.WrapToWidth(segment, width))
+            yield return line;
     }
 
     private static string Join(IReadOnlyList<InlineNode> nodes) =>
@@ -132,6 +173,8 @@ public sealed class MarkdownComponent : IComponent
                 {
                     MdText t => t.Value,
                     InlineCode c => c.Code,
+                    SoftBreak => " ",
+                    HardBreak => "\n",
                     _ => "",
                 }
             )

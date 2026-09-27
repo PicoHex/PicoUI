@@ -10,13 +10,15 @@ public static class AnsiEncoder
         Style? active = null;
         foreach (var cell in line.Cells)
         {
+            if (cell.Continuation)
+                continue; // second column of a wide rune — the rune itself was already emitted
             if (cell.Style != active)
             {
                 sb.Append(SgrReset);
                 sb.Append(SgrFor(cell.Style));
                 active = cell.Style;
             }
-            sb.Append(cell.Ch);
+            sb.Append(RuneText(cell.Rune));
         }
         if (active is not null)
             sb.Append(SgrReset);
@@ -26,6 +28,9 @@ public static class AnsiEncoder
     }
 
     public static string WrapSynchronized(string body) => $"\x1b[?2026h{body}\x1b[?2026l";
+
+    private static string RuneText(int rune) =>
+        rune > 0 && Rune.IsValid(rune) ? char.ConvertFromUtf32(rune) : " ";
 
     private static string SgrFor(Style s)
     {

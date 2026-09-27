@@ -11,10 +11,12 @@ public static class Htmx
 
     public static HttpResponse SseHtml(string html)
     {
+        // SSE frames are line-based: every payload line needs its own data: prefix.
+        var framed = html.Replace("\n", "\ndata: ", StringComparison.Ordinal);
         var resp = new HttpResponse
         {
             StatusCode = 200,
-            Body = Encoding.UTF8.GetBytes($"data: {html}\n\n"),
+            Body = Encoding.UTF8.GetBytes($"data: {framed}\n\n"),
         };
         resp.Headers.Add("Content-Type", "text/event-stream");
         resp.Headers.Add("Cache-Control", "no-cache");
@@ -35,10 +37,13 @@ public static class Htmx
         return resp;
     }
 
+    /// <summary>Trigger a client-side event. <paramref name="eventName"/> builds
+    /// the htmx event payload (<c>{"name":{}}</c>); pass <paramref name="data"/> to
+    /// send a pre-serialized payload instead.</summary>
     public static HttpResponse Trigger(string eventName, string data = "")
     {
         var resp = Html("", 200);
-        resp.Headers.Add("HX-Trigger", data);
+        resp.Headers.Add("HX-Trigger", data.Length > 0 ? data : HtmxEvents.EventPayload(eventName));
         return resp;
     }
 

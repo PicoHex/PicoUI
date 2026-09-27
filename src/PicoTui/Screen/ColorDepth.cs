@@ -21,7 +21,7 @@ public static class ColorDepthAdapter
 
     private static int To256(RgbColor c)
     {
-        // nearest of 6x6x6 cube + 24 grays
+        // nearest of the 6x6x6 cube (the 24-step gray ramp is not used)
         var r = Clamp(Math.Round(c.R / 255.0 * 5.0));
         var g = Clamp(Math.Round(c.G / 255.0 * 5.0));
         var b = Clamp(Math.Round(c.B / 255.0 * 5.0));

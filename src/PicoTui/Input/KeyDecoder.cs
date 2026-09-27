@@ -52,13 +52,22 @@ public sealed class KeyDecoder
         var rest = p[..^1].ToString();
         var parts = rest.Split(';', StringSplitOptions.RemoveEmptyEntries);
 
-        if (final == 'u' && parts.Length >= 2)
+        if (final == 'u')
         {
-            // kitty: ESC [ code ; modifier u — modifier is a flag bitmask (1=shift, 2=alt, 4=ctrl)
-            var code = int.Parse(parts[0]);
-            var mod = int.Parse(parts[1]);
-            var c = (char)code;
-            return new Key(c, Ctrl: (mod & 4) != 0, Alt: (mod & 2) != 0, Shift: (mod & 1) != 0);
+            // kitty: ESC [ code[:alternate] ; modifier[:event-type] ; text u
+            if (parts.Length == 0 || !TryParseSubParam(parts[0], out var code))
+                return null;
+            if (code <= 0 || code > char.MaxValue)
+                return null;
+            var mod = 1;
+            if (parts.Length >= 2 && !TryParseSubParam(parts[1], out mod))
+                return null;
+            return new Key(
+                (char)code,
+                Ctrl: (mod & 4) != 0,
+                Alt: (mod & 2) != 0,
+                Shift: (mod & 1) != 0
+            );
         }
 
         if (final is 'A' or 'B' or 'C' or 'D')
@@ -73,7 +82,9 @@ public sealed class KeyDecoder
             };
             if (parts.Length < 2)
                 return key;
-            var flags = int.Parse(parts[^1]) - 1;
+            if (!int.TryParse(parts[^1], out var param))
+                return null;
+            var flags = param - 1;
             return key with
             {
                 Ctrl = (flags & 4) != 0,
@@ -83,6 +94,15 @@ public sealed class KeyDecoder
         }
 
         return null;
+    }
+
+    /// <summary>Parses the leading parameter of a CSI sub-parameter group
+    /// (<c>5:3</c> → 5); malformed input is rejected instead of throwing.</summary>
+    private static bool TryParseSubParam(string part, out int value)
+    {
+        var colon = part.IndexOf(':');
+        var head = colon >= 0 ? part.AsSpan(0, colon) : part.AsSpan();
+        return int.TryParse(head, out value);
     }
 
     private static Key? DecodeSs3(char c) =>

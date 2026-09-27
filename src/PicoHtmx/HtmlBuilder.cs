@@ -2,6 +2,27 @@ namespace PicoHtmx;
 
 public static class H
 {
+    /// <summary>HTML void elements — the only tags that may self-close. A
+    /// self-closed non-void tag is an HTML parse error (script swallows the rest
+    /// of the document; div re-parents the following markup).</summary>
+    private static readonly HashSet<string> VoidElements = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "area",
+        "base",
+        "br",
+        "col",
+        "embed",
+        "hr",
+        "img",
+        "input",
+        "link",
+        "meta",
+        "param",
+        "source",
+        "track",
+        "wbr",
+    };
+
     public static string E(string? raw) =>
         raw is null
             ? ""
@@ -25,7 +46,7 @@ public static class H
         var sb = new StringBuilder();
         sb.Append('<').Append(name);
         AppendAttributes(sb, attrs);
-        if (content is null)
+        if (content is null && VoidElements.Contains(name))
             sb.Append(" />");
         else
             sb.Append('>').Append(content).Append("</").Append(name).Append('>');
@@ -166,17 +187,24 @@ public static class H
         foreach (var prop in attrType.GetProperties())
 #pragma warning restore IL2075
         {
-            var val = prop.GetValue(attrs)?.ToString();
-            if (val is not null)
+            var name = prop.Name switch
             {
-                var name = prop.Name switch
-                {
-                    "class" => "class",
-                    "@class" => "class",
-                    _ => prop.Name.Replace('_', '-'),
-                };
-                sb.Append(' ').Append(name).Append("=\"").Append(E(val)).Append('"');
+                "class" => "class",
+                "@class" => "class",
+                _ => prop.Name.Replace('_', '-'),
+            };
+            var raw = prop.GetValue(attrs);
+            // HTML boolean attributes: present = true, absent = false.
+            // Rendering false as "False" would still enable the attribute.
+            if (raw is bool boolValue)
+            {
+                if (boolValue)
+                    sb.Append(' ').Append(name).Append("=\"\"");
+                continue;
             }
+            var val = raw?.ToString();
+            if (val is not null)
+                sb.Append(' ').Append(name).Append("=\"").Append(E(val)).Append('"');
         }
     }
 

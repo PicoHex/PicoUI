@@ -1,5 +1,10 @@
 namespace PicoTui.Layout;
 
+/// <summary>Scroll view options.</summary>
+/// <param name="FollowEnd">Keep the viewport pinned to the end of the content.</param>
+/// <param name="Primary">Reserved (not wired yet): capture wheel events over
+/// non-scroll regions.</param>
+/// <param name="Overscroll">Reserved (not wired yet): chain overscroll to the parent.</param>
 public sealed record ScrollOptions(
     bool FollowEnd = false,
     bool Primary = false,
@@ -28,6 +33,8 @@ public sealed class ScrollView : IComponent
         var content = _child.Render(width);
         if (_opts.FollowEnd)
             _offset = Math.Max(0, content.Length - viewportHeight);
+        else if (viewportHeight != int.MaxValue)
+            _offset = Math.Min(_offset, Math.Max(0, content.Length - viewportHeight));
 
         var lines = new List<string>();
         var end =

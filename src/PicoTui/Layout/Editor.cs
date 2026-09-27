@@ -5,7 +5,18 @@ public sealed class Editor : IComponent
     private readonly StringBuilder _buffer = new();
     private bool _focused = true;
     public string Text => _buffer.ToString();
-    public int CursorCol { get; private set; }
+
+    /// <summary>Display column of the insertion point (end of the last line).</summary>
+    public int CursorCol
+    {
+        get
+        {
+            var text = _buffer.ToString();
+            var lastBreak = text.LastIndexOf('\n');
+            var lastLine = lastBreak < 0 ? text : text[(lastBreak + 1)..];
+            return WidthTable.VisibleWidth(lastLine);
+        }
+    }
 
     public void SetText(string text)
     {
@@ -33,14 +44,11 @@ public sealed class Editor : IComponent
 
     public string[] Render(int width)
     {
+        if (width <= 0)
+            return [];
         var result = new List<string>();
         foreach (var raw in Text.Split('\n'))
-        {
-            if (raw.Length <= width)
-                result.Add(raw);
-            else
-                result.Add(raw[..width]);
-        }
+            result.Add(WidthTable.TruncateToWidth(raw, width));
         return [.. result];
     }
 

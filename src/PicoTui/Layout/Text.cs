@@ -14,27 +14,11 @@ public sealed class Text : IComponent
 
     public string[] Render(int width)
     {
+        if (width <= 0)
+            return [];
         var result = new List<string>();
         foreach (var raw in _text.Split('\n'))
-        {
-            if (raw.Length == 0)
-            {
-                result.Add("");
-                continue;
-            }
-            if (raw.Length <= width)
-            {
-                result.Add(raw);
-                continue;
-            }
-            var start = 0;
-            while (start < raw.Length)
-            {
-                var take = Math.Min(width, raw.Length - start);
-                result.Add(raw.Substring(start, take));
-                start += take;
-            }
-        }
+            result.AddRange(WidthTable.WrapToWidth(raw, width));
         return [.. result];
     }
 

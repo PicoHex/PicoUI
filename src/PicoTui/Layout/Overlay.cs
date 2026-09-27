@@ -21,17 +21,22 @@ public sealed class Overlay
     public string[] RenderComposed(string[] viewport, int width, int height)
     {
         var content = _content.Render(width);
-        var ow = content.Length > 0 ? content.Max(l => l.Length) : 0;
+        var ow = content.Length > 0 ? content.Max(WidthTable.VisibleWidth) : 0;
         var oh = content.Length;
         var (top, left) = ResolvePosition(width, height, ow, oh);
-        var result = (string[])viewport.Clone();
-        for (var r = 0; r < oh && top + r < height; r++)
+        // pad every viewport row to the full column width so overlay writes stay in range
+        var result = new string[Math.Max(height, viewport.Length)];
+        for (var r = 0; r < result.Length; r++)
         {
-            var row = result[top + r].ToCharArray();
-            for (var c = 0; c < ow && left + c < width; c++)
-                if (c < content[r].Length)
-                    row[left + c] = content[r][c];
-            result[top + r] = new string(row);
+            var line = r < viewport.Length ? viewport[r] : "";
+            var cols = WidthTable.VisibleWidth(line);
+            result[r] = cols >= width ? line : line + new string(' ', width - cols);
+        }
+        for (var r = 0; r < oh && top + r < result.Length; r++)
+        {
+            var insert = WidthTable.TruncateToWidth(content[r], ow);
+            var insertCols = WidthTable.VisibleWidth(insert);
+            result[top + r] = WidthTable.SpliceAtColumns(result[top + r], left, insert, insertCols);
         }
         return result;
     }

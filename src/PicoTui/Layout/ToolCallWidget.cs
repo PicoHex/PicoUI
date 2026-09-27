@@ -39,7 +39,7 @@ public sealed class ToolCallWidget : IComponent
             result.Add("   running…");
         else if (_result.Length > 0)
             result.Add($"   {_result}");
-        return [.. result.Select(l => l.Length > width ? l[..width] : l)];
+        return [.. result.Select(l => WidthTable.TruncateToWidth(l, width))];
     }
 
     public void HandleInput(string seq) { }

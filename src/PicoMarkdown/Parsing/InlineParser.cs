@@ -23,6 +23,38 @@ internal static class InlineParser
                 continue;
             }
 
+            if (text[i] == '\n')
+            {
+                // hard break: trailing backslash, or two+ trailing spaces (trimmed)
+                var trailingSpaces = 0;
+                while (buffer.Length > 0 && buffer[^1] == ' ')
+                {
+                    buffer.Length--;
+                    trailingSpaces++;
+                }
+                var hard = false;
+                if (buffer.Length > 0 && buffer[^1] == '\\')
+                {
+                    // an odd raw run before the newline ends with the hard-break marker;
+                    // an even run is made of escaped pairs (content backslashes)
+                    var run = 0;
+                    for (var j = i - 1; j >= 0 && text[j] == '\\'; j--)
+                        run++;
+                    if (run % 2 == 1)
+                    {
+                        buffer.Length--;
+                        hard = true;
+                    }
+                }
+                if (!hard && trailingSpaces >= 2)
+                {
+                    hard = true;
+                }
+                FlushText(nodes, buffer);
+                nodes.Add(hard ? new HardBreak() : new SoftBreak());
+                continue;
+            }
+
             if (text[i] == '`')
             {
                 var end = text.IndexOf('`', i + 1);
@@ -118,12 +150,29 @@ internal static class InlineParser
         var urlEnd = text.IndexOf(')', close + 2);
         if (urlEnd < 0)
             return false;
-        var url = text[(close + 2)..urlEnd];
+        var (url, title) = SplitTitle(text[(close + 2)..urlEnd]);
         if (url.Length == 0)
             return false;
-        link = isImage ? new Image(url, label) : new Link(url, null, [new Text(label)]);
+        link = isImage ? new Image(url, label) : new Link(url, title, [new Text(label)]);
         consumed = urlEnd + 1;
         return true;
+    }
+
+    /// <summary>Splits a link destination: <c>url</c>, <c>url "title"</c> or <c>url 'title'</c>.</summary>
+    private static (string Url, string? Title) SplitTitle(string inner)
+    {
+        var trimmed = inner.Trim();
+        if (trimmed.Length >= 2)
+        {
+            var quote = trimmed[^1];
+            if (quote is '"' or '\'')
+            {
+                var open = trimmed.LastIndexOf(quote, trimmed.Length - 2);
+                if (open > 0 && trimmed[open - 1] == ' ')
+                    return (trimmed[..(open - 1)].Trim(), trimmed[(open + 1)..^1]);
+            }
+        }
+        return (trimmed, null);
     }
 
     private static void FlushText(List<InlineNode> nodes, StringBuilder buffer)

@@ -29,4 +29,16 @@ public struct Style : IEquatable<Style>
     public static bool operator !=(Style a, Style b) => !a.Equals(b);
 }
 
-public readonly record struct Cell(char Ch, Style Style);
+/// <summary>
+/// One screen cell. <see cref="Rune"/> is a Unicode code point (astral runes
+/// included). Wide runes occupy two columns: the rune cell plus a
+/// <see cref="Continuation"/> marker cell that encoding skips.
+/// </summary>
+public readonly record struct Cell(int Rune, Style Style, bool Continuation = false)
+{
+    /// <summary>Blank cell (space, no attributes).</summary>
+    public static readonly Cell Blank = new(' ', default);
+
+    /// <summary>BMP accessor; astral runes report U+FFFD (use <see cref="Rune"/> instead).</summary>
+    public char Ch => Rune is >= 0 and <= char.MaxValue ? (char)Rune : '\uFFFD';
+}

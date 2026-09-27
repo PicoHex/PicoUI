@@ -19,11 +19,27 @@ public sealed class ScreenBuffer
         for (var r = 0; r < rows; r++)
         {
             var cells = new Cell[cols];
+            Array.Fill(cells, Cell.Blank);
             if (r < _lines.Length)
                 Array.Copy(_lines[r].Cells, cells, Math.Min(cols, _lines[r].Width));
             next[r] = new Line { Cells = cells };
         }
         _lines = next;
+    }
+
+    /// <summary>Writes one rune. Wide runes consume two columns (the second is a
+    /// continuation marker). Returns the columns consumed, or 0 when a wide rune
+    /// does not fit in the remaining columns. Like <see cref="Get"/>/<see cref="Set"/>,
+    /// row/column bounds are the caller's responsibility.</summary>
+    public int WriteRune(int row, int col, int rune, Style style)
+    {
+        var cols = WidthTable.IsWide(rune) ? 2 : 1;
+        if (col < 0 || col + cols > Cols)
+            return 0;
+        _lines[row].Cells[col] = new Cell(rune, style);
+        if (cols == 2)
+            _lines[row].Cells[col + 1] = new Cell(rune, style, Continuation: true);
+        return cols;
     }
 
     public Cell Get(int row, int col) => _lines[row].Cells[col];

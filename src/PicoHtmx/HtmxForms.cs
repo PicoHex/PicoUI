@@ -58,16 +58,20 @@ public static class HtmxForms
         return ParseUrlEncodedBody(new string(buffer, 0, totalRead));
     }
 
-    /// <summary>First value of a query-string key (UnescapeDataString-decoded), or null.</summary>
+    /// <summary>First value of a query-string key (whole-key match, + → space), or null.</summary>
     public static string? QueryParam(string qs, string key)
     {
-        var prefix = key + "=";
-        var idx = qs.IndexOf(prefix, StringComparison.Ordinal);
-        if (idx < 0)
-            return null;
-        var val = qs[(idx + prefix.Length)..];
-        var ampIdx = val.IndexOf('&');
-        return ampIdx >= 0 ? Uri.UnescapeDataString(val[..ampIdx]) : Uri.UnescapeDataString(val);
+        var query = qs.StartsWith('?') ? qs[1..] : qs;
+        foreach (var pair in query.Split('&'))
+        {
+            var eq = pair.IndexOf('=');
+            if (eq < 0)
+                continue;
+            if (!pair.AsSpan(0, eq).SequenceEqual(key))
+                continue;
+            return DecodeFormValue(pair[(eq + 1)..]);
+        }
+        return null;
     }
 
     /// <summary>Route value parsed as Guid; <see cref="Guid.Empty"/> when missing/unparseable.</summary>

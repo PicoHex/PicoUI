@@ -4,7 +4,9 @@ public sealed class Input : IComponent
 {
     private readonly StringBuilder _buffer = new();
     public string Text => _buffer.ToString();
-    public int Cursor { get; private set; }
+
+    /// <summary>Insertion point: the editor only appends/deletes at the end.</summary>
+    public int Cursor => _buffer.Length;
 
     public void HandleInput(string seq)
     {

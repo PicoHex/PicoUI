@@ -9,7 +9,12 @@ public sealed class QuoteTests
 
         var quote = (BlockQuote)doc.Blocks.Single();
         var p = (Paragraph)quote.Blocks.Single();
-        await Assert.That(p.Inlines.Single()).IsEqualTo(new Text("line one line two"));
+        // two source lines → a soft break node (the renderer still joins with a space)
+        await Assert
+            .That(p.Inlines)
+            .IsEquivalentTo(
+                new InlineNode[] { new Text("line one"), new SoftBreak(), new Text("line two") }
+            );
     }
 
     [Test]
