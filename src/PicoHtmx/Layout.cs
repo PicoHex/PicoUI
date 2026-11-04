@@ -48,15 +48,20 @@ public static class Layout
         // Keep the attrs statically typed (anonymous type via var) so the
         // generic H.Tag<T> overload is selected — object-typed attrs would
         // fail loudly (AOT preservation guard) or silently render nothing.
+        //
+        // The label goes in RAW: H.Tag escapes text now, so pre-escaping it here
+        // (the old `H.Tag("a", H.E(label), attrs)`) made a link chip render
+        // differently from the same label inside H.Span. The href is sanitized
+        // through H.Url (scheme allowlist) and escaped by the attribute renderer.
         if (active)
         {
-            var attrs = new { href, @class = "active" };
-            return H.Tag("a", H.E(label), attrs);
+            var attrs = new { href = H.Url(href), @class = "active" };
+            return H.Tag("a", label, attrs);
         }
         else
         {
-            var attrs = new { href };
-            return H.Tag("a", H.E(label), attrs);
+            var attrs = new { href = H.Url(href) };
+            return H.Tag("a", label, attrs);
         }
     }
 }

@@ -12,10 +12,11 @@ public static class Ux
         var rendered = new List<string>();
         foreach (var item in items)
             rendered.Add(renderItem(item));
+        // renderItem returns markup, so the joined list is injected verbatim.
         var list =
             rendered.Count > 0
                 ? string.Join("", rendered)
-                : H.Div(H.E(emptyMsg), new { @class = "empty" });
+                : H.Div(emptyMsg, new { @class = "empty" });
         return $"""
             <div class="list-page">
                 <div class="list-header">{H.E(title)}</div>
@@ -31,9 +32,9 @@ public static class Ux
         string? error = null
     )
     {
-        var errorHtml = error is null ? "" : H.Div(H.E(error), new { @class = "form-error" });
+        var errorHtml = error is null ? "" : H.Div(error, new { @class = "form-error" });
         return $"""
-            <form action="{H.E(action)}" method="{H.E(
+            <form action="{H.E(H.Url(action))}" method="{H.E(
                 method
             )}" hx-target="this" hx-swap="outerHTML">
                 {errorHtml}
@@ -42,20 +43,41 @@ public static class Ux
             """;
     }
 
+    /// <summary>Renders one labelled form control. <paramref name="type"/> =
+    /// <c>"textarea"</c> emits a real <c>&lt;textarea&gt;</c> (RCDATA — the value
+    /// goes between the tags, never in a <c>value</c> attribute): an
+    /// <c>&lt;input type="textarea"&gt;</c> is an invalid type, so the browser falls
+    /// back to the Text state, whose value sanitization DELETES newlines — editing
+    /// a multi-line prompt silently collapsed it onto one line and saved that.
+    /// </summary>
     public static string FormField(
         string label,
         string name,
         string? value = null,
         string? type = "text",
-        bool required = false
+        bool required = false,
+        int rows = 3
     )
     {
         var reqAttr = required ? " required" : "";
+        var labelHtml = $"""
+            <label for="{H.E(name)}">{H.E(label)}</label>
+            """;
+        if (string.Equals(type, "textarea", StringComparison.OrdinalIgnoreCase))
+        {
+            return $"""
+                <div class="form-group">
+                    {labelHtml}
+                    <textarea id="{H.E(name)}" name="{H.E(name)}" rows="{rows}"{reqAttr}>{H.E(value)}</textarea>
+                </div>
+                """;
+        }
+
         return $"""
             <div class="form-group">
-                <label for="{H.E(name)}">{H.E(label)}</label>
+                {labelHtml}
                 <input type="{H.E(type)}" id="{H.E(name)}" name="{H.E(name)}"
-                       value="{H.E(value ?? "")}"{reqAttr} />
+                       value="{H.E(value)}"{reqAttr} />
             </div>
             """;
     }
@@ -65,7 +87,7 @@ public static class Ux
         return $"""
             <div class="confirm-dialog">
                 <p>{H.E(message)}</p>
-                <button class="btn-danger" hx-post="{H.E(confirmUrl)}"
+                <button class="btn-danger" hx-post="{H.E(H.Url(confirmUrl))}"
                         hx-target="closest .confirm-dialog" hx-swap="outerHTML">Confirm</button>
                 <button class="btn-secondary" onclick="this.closest('.confirm-dialog').remove()">Cancel</button>
             </div>
@@ -75,7 +97,7 @@ public static class Ux
     public static string Toast(string message, bool isError = false)
     {
         var cls = isError ? "toast error" : "toast success";
-        return H.Div(H.E(message), new { @class = cls });
+        return H.Div(message, new { @class = cls });
     }
 
     public static string Spinner()

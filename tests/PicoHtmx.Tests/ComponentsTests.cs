@@ -54,6 +54,57 @@ public sealed class ComponentsTests
         await Assert.That(html).Contains("name=\"name\"");
     }
 
+    // Review 01-C1: type:"textarea" used to emit <input type="textarea">. An input
+    // in the Text state DELETES newlines from its value, so editing a multi-line
+    // role/cron prompt and saving wrote the collapsed single line back to the
+    // config — silent user-data corruption (the only data-loss defect in review).
+    [Test]
+    public async Task FormField_Textarea_RendersRealTextareaWithNewlines()
+    {
+        var html = Ux.FormField("Prompt", "prompt", value: "a\nb", type: "textarea");
+
+        await Assert.That(html).Contains("<textarea");
+        await Assert.That(html).Contains("</textarea>");
+        await Assert.That(html).Contains("a\nb");
+        await Assert.That(html).DoesNotContain("type=\"textarea\"");
+        await Assert.That(html).DoesNotContain("<input");
+    }
+
+    [Test]
+    public async Task FormField_Textarea_EscapesContent()
+    {
+        var html = Ux.FormField("Prompt", "prompt", value: "<b> & \"q\"", type: "textarea");
+
+        await Assert.That(html).Contains("&lt;b&gt; &amp; &quot;q&quot;");
+        await Assert.That(html).DoesNotContain("<b>");
+    }
+
+    [Test]
+    public async Task FormField_Textarea_KeepsRequiredAndName()
+    {
+        var html = Ux.FormField(
+            "Prompt",
+            "prompt",
+            value: "x",
+            type: "textarea",
+            required: true
+        );
+
+        await Assert.That(html).Contains("id=\"prompt\"");
+        await Assert.That(html).Contains("name=\"prompt\"");
+        await Assert.That(html).Contains("required");
+    }
+
+    [Test]
+    public async Task FormField_Text_StillRendersInput()
+    {
+        var html = Ux.FormField("Name", "name", type: "text");
+
+        await Assert.That(html).Contains("<input");
+        await Assert.That(html).Contains("type=\"text\"");
+        await Assert.That(html).DoesNotContain("<textarea");
+    }
+
     [Test]
     public async Task ConfirmDialog_ContainsConfirmUrl()
     {

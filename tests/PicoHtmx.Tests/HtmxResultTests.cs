@@ -79,17 +79,21 @@ public sealed class HtmxResultTests
             .Contains(new KeyValuePair<string, string>("HX-Refresh", "true"));
     }
 
+    // Review 01-H4 / §5-#9: this test used to assert that WithRetry added an
+    // "HX-Retry" header — i.e. it froze a header htmx does not know as a
+    // contract, so the no-op API looked verified. WithRetry is gone; the real
+    // swap-control headers replace it.
     [Test]
-    public async Task HtmxResult_WithRetry_AddsHxRetryHeader()
+    public async Task HtmxResult_WithReswap_AddsRealHeader()
     {
         var ctx = WebContext.Create(CreateRequest());
-        var result = new HtmxResult("").WithRetry(false);
+        var result = new HtmxResult("").WithReswap("none").WithRetarget("#main");
 
         var response = result.Execute(ctx);
 
-        await Assert
-            .That(response.Headers)
-            .Contains(new KeyValuePair<string, string>("HX-Retry", "false"));
+        await Assert.That(response.Headers["HX-Reswap"]).IsEqualTo("none");
+        await Assert.That(response.Headers["HX-Retarget"]).IsEqualTo("#main");
+        await Assert.That(response.Headers.Contains(new KeyValuePair<string, string>("HX-Retry", "false"))).IsFalse();
     }
 
     [Test]
