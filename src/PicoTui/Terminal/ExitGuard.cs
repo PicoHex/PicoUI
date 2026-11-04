@@ -48,15 +48,18 @@ internal delegate IDisposable? SignalRegistrar(
 /// watchdog, FailFast, AOT crash).
 /// <para>
 /// Signals: <c>SIGTERM</c>/<c>SIGINT</c>/<c>SIGHUP</c> plus — added by F10b (04-H2
-/// residual) — <c>SIGQUIT</c> (Ctrl-\) and <c>SIGTSTP</c> (Ctrl-Z), both of which
-/// killed the process with the tty still in raw mode. Availability is pe/// Signals: <c>SIGTERM</c>/<c>SIGINT</c>/<c>SIGHUP</c> plus — added by F10b (04-H2
-/// residual) — <c>SIGQUIT</c> (Ctrl-\) and <c>SIGTSTP</c> (Ctrl-Z), both of which
-/// killed the process with the tty still in raw mode. Availability is per platform:
+/// residual) — <c>SIGQUIT</c> (Ctrl-\) and <c>SIGTSTP</c> (Ctrl-Z), both of which killed
+/// the process with the tty still in raw mode. Availability is per platform:
 /// SIGTERM/SIGINT/SIGHUP/SIGQUIT are registrable everywhere (Windows maps them to
-/// console ctrl/close events), SIGTSTP only exists on Unix. Requesting an unavailable
-/// signal must never break the guard — <see cref="FailedSignals"/> records it instead. from them. The F5 version set a bool
-/// before the registration loop, so "registered" was true even when every
-/// <c>Create</c> threw.
+/// console ctrl/close events), SIGTSTP only exists on Unix. Only the platform-available
+/// subset (<see cref="RequiredSignals"/>) is required for the guard to count as armed;
+/// requesting an unavailable signal must never break it — <see cref="FailedSignals"/>,
+/// <see cref="RegisteredSignals"/> and <see cref="Defect"/> report the gap instead.
+/// </para>
+/// <para>
+/// <see cref="IsRegistered"/> is derived from the recorded registrations, never from
+/// intent: the F5 version set a bool before the registration loop, so "registered" was
+/// true even when every <c>Create</c> threw.
 /// </para>
 /// <para>
 /// Every hook funnels into one idempotent restore. <see cref="Dispose"/> unregisters

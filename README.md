@@ -38,6 +38,20 @@ All modules: `<IsAotCompatible>true</IsAotCompatible>` +
 zero runtime code generation. `PicoHtmx` attribute bags are compile-time
 anonymous types only (see its design docs).
 
+## Behaviour Changes
+
+Two public behaviours were **corrected** in this release — these are not new
+features, and both now match what the members' XML docs say:
+
+- **`MarkdownUrl.Sanitize(null)` / `("")` / `("   ")` now return `""`** (was
+  `about:blank`). "No destination" is no longer rewritten into a fallback URL;
+  unsafe schemes still degrade to `MarkdownUrl.Fallback` (`about:blank`).
+  Same for `H.Url` in PicoHtmx — the two are pinned together by a parity test.
+- **Void elements with null/empty content self-close: `<br />`** (was `<br></br>`).
+  An end tag for a void element is a *second* start tag, so the old pair rendered an
+  extra break for `H.Tag("br", null)` and an extra request for `<img>`. Non-void
+  elements are unchanged (`<div></div>`).
+
 ## Ecosystem
 
 ```
