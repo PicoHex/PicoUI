@@ -44,6 +44,14 @@ internal static class BlockParser
         var codeLines = new List<string>();
         var fenceStart = 0;
 
+        // Index of the last line that carries content (trailing blank lines ignored).
+        // A backtick-only line shorter than the opening marker is only the streaming
+        // tail of a closing fence when it sits at or after this line; anywhere else it
+        // is ordinary code content (a nested shorter fence — 02-H1).
+        var lastContentLine = lines.Length - 1;
+        while (lastContentLine > 0 && lines[lastContentLine].Trim().Length == 0)
+            lastContentLine--;
+
         for (var i = 0; i < lines.Length; i++)
         {
             var line = lines[i];
@@ -65,55 +73,15 @@ internal static class BlockParser
                     codeLines.Clear();
                     lastStableLine = i; // closing fence = stability point
                 }
-                else if (IsPartialClosingFence(trimmed, fenceMarker))
+                else if (IsPartialClosingFence(trimmed, fenceMarker) && i >= lastContentLine)
                 {
-                    // Partial closing fence while streaming — trim from content,
-                    // don't close yet.
+                    // Partial closing fence at the streaming tail (nothing but blank
+                    // lines after it) — trim from content, don't close yet.
                 }
                 else
                 {
                     codeLines.Add(line);
                 }
-                continue;
-            }
-
-            if (i + 1 < lines.Length && IsTableSeparator(lines[i + 1]))
-            {
-                FlushParagraph(blocks, paraLines, paraStart, i - 1);
-                if (inList)
-                {
-                    blocks.Add(BuildList(listRows, depth));
-                    listRows.Clear();
-                    inList = false;
-                }
-                var tableStart = i;
-                var lastTableLine = i + 1;
-                var headerCells = SplitCells(lines[i]);
-                var rows = new List<TableRow>
-                {
-                    new(
-                        headerCells
-                            .Select(c => new TableCell(InlineParser.Parse(c.Trim())))
-                            .ToList(),
-                        IsHeader: true
-                    ),
-                };
-                i += 2;
-                while (
-                    i < lines.Length && lines[i].Trim().Length > 0 && !IsTableSeparator(lines[i])
-                )
-                {
-                    var cells = SplitCells(lines[i])
-                        .Select(c => new TableCell(InlineParser.Parse(c.Trim())))
-                        .ToList();
-                    rows.Add(new TableRow(cells, IsHeader: false));
-                    lastTableLine = i;
-                    i++;
-                }
-                blocks.Add(new Table(rows) { StartLine = tableStart, EndLine = lastTableLine });
-                // Table terminates at the next block boundary (no blank line needed)
-                lastStableLine = lastTableLine;
-                i--;
                 continue;
             }
 
@@ -203,6 +171,46 @@ internal static class BlockParser
                 );
                 lastStableLine = j - 1;
                 i = j - 1;
+                continue;
+            }
+
+            // Table look-ahead runs LAST, after fence/HR/heading/quote/list recognition
+            // claimed the line: otherwise "```" followed by "|---|" is taken for a table
+            // header and the fence disappears (02-H3).
+            if (i + 1 < lines.Length && IsTableSeparator(lines[i + 1]))
+            {
+                FlushParagraph(blocks, paraLines, paraStart, i - 1);
+                var tableStart = i;
+                var lastTableLine = i + 1;
+                var headerCells = SplitCells(lines[i]);
+                var rows = new List<TableRow>
+                {
+                    new(
+                        headerCells
+                            .Select(c => new TableCell(InlineParser.Parse(c.Trim())))
+                            .ToList(),
+                        IsHeader: true
+                    ),
+                };
+                i += 2;
+                while (
+                    i < lines.Length && lines[i].Trim().Length > 0 && !IsTableSeparator(lines[i])
+                )
+                {
+                    var cells = SplitCells(lines[i])
+                        .Select(c => new TableCell(InlineParser.Parse(c.Trim())))
+                        .ToList();
+                    rows.Add(new TableRow(cells, IsHeader: false));
+                    lastTableLine = i;
+                    i++;
+                }
+                blocks.Add(new Table(rows) { StartLine = tableStart, EndLine = lastTableLine });
+                // Only a terminating blank line (or another separator line) makes the
+                // table final. At EOF it can still grow, so no stability advance — the
+                // same rule the unclosed-fence and trailing-paragraph branches use (02-H4).
+                if (i < lines.Length)
+                    lastStableLine = lastTableLine;
+                i--;
                 continue;
             }
 

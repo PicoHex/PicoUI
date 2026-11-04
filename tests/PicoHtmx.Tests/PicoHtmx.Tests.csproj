@@ -13,6 +13,10 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\PicoHtmx\PicoHtmx.csproj" />
+    <!-- F10a-4: the URL whitelist is one contract shared with PicoMarkdown, so its parity
+         test needs both implementations in one assembly. Test-only reference — the shipped
+         PicoHtmx package does NOT depend on PicoMarkdown. -->
+    <ProjectReference Include="..\..\src\PicoMarkdown\PicoMarkdown.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="TUnit" />
