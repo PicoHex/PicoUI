@@ -15,10 +15,21 @@
          module itself deliberately does not reference PicoWeb. -->
     <PackageVersion Include="PicoWeb" Version="2026.4.2" />
   </ItemGroup>
-  <ItemGroup>
+  <PropertyGroup>
     <!-- Sibling PicoUI modules consumed as packages when
-         UseProjectReferences=false (release pack path). -->
-    <PackageVersion Include="PicoMarkdown" Version="2026.9.0" />
-    <PackageVersion Include="PicoMermaid" Version="2026.9.0" />
+         UseProjectReferences=false (release pack path). The version must be the
+         one being released, not a constant: a literal here is baked into the
+         nuspec of the package that depends on the sibling, so a tag other than
+         2026.9.0 would publish a package whose dependency resolves to a stale
+         sibling DLL with every pipeline stage green.
+         Release packs inject -p:PicoMarkdownVersion=<tag> -p:PicoMermaidVersion=<tag>
+         (.github/workflows/release.yml, tools/release-build.sh); the defaults
+         below keep local development on the last published siblings. -->
+    <PicoMarkdownVersion Condition="'$(PicoMarkdownVersion)' == ''">2026.9.0</PicoMarkdownVersion>
+    <PicoMermaidVersion Condition="'$(PicoMermaidVersion)' == ''">2026.9.0</PicoMermaidVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageVersion Include="PicoMarkdown" Version="$(PicoMarkdownVersion)" />
+    <PackageVersion Include="PicoMermaid" Version="$(PicoMermaidVersion)" />
   </ItemGroup>
 </Project>

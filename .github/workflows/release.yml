@@ -4,7 +4,10 @@ on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch:
+  # No workflow_dispatch: a release must come from a v* tag whose commit is the
+  # tip of main (guarded below). A manual trigger takes its version from a branch
+  # name and would reintroduce exactly the side-branch release this repository
+  # forbids.
 
 permissions:
   contents: read
@@ -25,6 +28,47 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      # `main` is the only release branch (tools/release-build.sh R1,
+      # docs/releasing.md). A tag name proves nothing on its own: it can be pushed
+      # from any branch or any orphan commit — that is how a release once shipped
+      # 69 commits behind main.
+      #
+      # WHAT THIS REFUSES (F9-5): the tagged commit must BE the tip of origin/main,
+      # not merely an ancestor of it. The previous check was
+      # `git merge-base --is-ancestor HEAD origin/main`, which accepts EVERY commit on
+      # main's history — so tagging a stale commit (pushed to main an hour ago, or
+      # 69 commits ago) passed while the comment above claimed to prevent it. "Behind
+      # main" and "not on main" are the same defect: the payload is not what main says
+      # today, and nothing in the artifact would have said "stale". Equality covers
+      # both (a commit that is not on main cannot equal its tip); the ahead/behind
+      # counts are printed so a refusal is diagnosable.
+      #
+      # DIVISION OF LABOUR with tools/release-build.sh: the script runs offline and
+      # enforces the LOCAL invariants (R1: branch == main, no detached HEAD; R2: clean
+      # tree) — a tag build is a detached HEAD, so it cannot run that check, and the
+      # script cannot see the remote. This workflow has the freshly fetched remote and
+      # owns the one REMOTE invariant: tagged sha == origin/main sha. Two checks, no
+      # overlap, one rule (release only what main says now).
+      #
+      # Reproduce locally — the body below is this exact snippet:
+      #   git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+      #   [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || exit 1
+      # fetch-depth: 0 above makes the comparison meaningful: a shallow clone could
+      # graft origin/main onto an unrelated commit.
+      - name: Refuse releases that are not the tip of origin/main
+        shell: bash
+        run: |
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          head_sha=$(git rev-parse HEAD)
+          main_sha=$(git rev-parse origin/main)
+          if [ "$head_sha" != "$main_sha" ]; then
+            ahead=$(git rev-list --count origin/main..HEAD)
+            behind=$(git rev-list --count HEAD..origin/main)
+            echo "REFUSED: tagged commit $head_sha is not the tip of origin/main ($main_sha) — $ahead ahead, $behind behind. Releases are only cut from the current tip of main." >&2
+            exit 1
+          fi
+          echo "HEAD $head_sha is the tip of origin/main (ok)"
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -65,12 +109,58 @@ jobs:
           dotnet pack src/PicoTui/PicoTui.csproj \
             -c Release -o "$NUPKG_DIR" -p:Version="$VERSION" \
             -p:UseProjectReferences=false \
+            -p:PicoMarkdownVersion="$VERSION" \
+            -p:PicoMermaidVersion="$VERSION" \
             -p:RestoreAdditionalProjectSources="$NUPKG_DIR"
 
           # ---- Phase 3: depends on PicoWeb (nuget.org) ----
           dotnet pack src/PicoHtmx/PicoHtmx.csproj \
             -c Release -o "$NUPKG_DIR" -p:Version="$VERSION" \
             -p:UseProjectReferences=false
+
+      # 06-C1 gate: the packages must depend on the sibling modules AT the tag
+      # version. -p:UseProjectReferences=false takes that dependency version from
+      # $(PicoMarkdownVersion)/$(PicoMermaidVersion); if the injection is ever
+      # dropped the nuspec silently pins a stale sibling, consumers restore an
+      # old DLL, and every other stage stays green (2026.9.0 shipped exactly
+      # that). Mirrors tools/release-build.sh R7.
+      - name: Verify sibling dependency versions
+        shell: bash
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          mismatch=0
+          for pkg in ./artifacts/nupkg/*.nupkg; do
+            name=$(basename "$pkg")
+            nuspec=$(unzip -p "$pkg" '*.nuspec')
+            declared=""
+            for id in PicoMarkdown PicoMermaid; do
+              line=$(printf '%s\n' "$nuspec" | grep -E "<dependency[^>]*id=\"$id\"" || true)
+              [ -n "$line" ] || continue
+              declared="$declared $id"
+              ver=$(printf '%s\n' "$line" | sed -E 's/^.*version="([^"]*)".*$/\1/')
+              ver=${ver#\[}
+              ver=${ver%\]}
+              if [ "$ver" != "$VERSION" ]; then
+                echo "$name: $id = $ver (expected $VERSION)" >&2
+                mismatch=1
+              fi
+            done
+            case "$name" in
+              PicoTui.*)
+                for id in PicoMarkdown PicoMermaid; do
+                  case " $declared " in
+                    *" $id "*) ;;
+                    *) echo "$name: no $id dependency" >&2; mismatch=1 ;;
+                  esac
+                done
+                ;;
+            esac
+          done
+          if [ "$mismatch" -ne 0 ]; then
+            echo "REFUSED: the payload's sibling dependencies do not match the tag — nothing was published." >&2
+            exit 1
+          fi
+          echo "sibling dependencies match $VERSION"
 
       - name: Upload package artifacts
         uses: actions/upload-artifact@v4

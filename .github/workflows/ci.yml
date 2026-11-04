@@ -73,10 +73,15 @@ jobs:
       # the out-of-solution sibling PicoNode projects with their default Debug
       # configuration, so PicoUI Release outputs would link Debug PicoNode.
       # Per-project builds propagate -c Release to project references.
+      #
+      # tests/* is built here on purpose: every Test step below runs with
+      # --no-build, which is a contract that the binary already exists. Leaving
+      # the test projects out of this loop made the first Test step fail on a
+      # clean runner and skipped the other three plus the whole AOT matrix.
       - name: Build
         shell: bash
         run: |
-          for proj in src/*/*.csproj samples/*/*.csproj; do
+          for proj in src/*/*.csproj tests/*/*.Tests.csproj samples/*/*.csproj; do
             dotnet build "$proj" --no-restore -c Release || exit 1
           done
 
