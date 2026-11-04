@@ -14,6 +14,31 @@ public sealed class UiLoop
 
     public int RenderCount { get; private set; }
 
+    /// <summary>
+    /// Raised once for every drained event, with the event instance that was
+    /// posted (04-C1: the loop used to consume the payload and drop it, so no
+    /// consumer could ever observe a keystroke).
+    /// </summary>
+    public Action<UiEvent>? OnEvent { get; set; }
+
+    /// <summary>
+    /// Raised for every drained <see cref="EventKind.Input"/> event that carries
+    /// a payload, with that payload (one decoded input unit per callback — see
+    /// <see cref="PicoTui.Input.StdinPump"/>). Invoked before <see cref="OnEvent"/>
+    /// for the same event.
+    /// </summary>
+    public Action<string>? OnInput { get; set; }
+
+    /// <summary>
+    /// F9-2 (04-C1 residual): raised for every drained <see cref="EventKind.Input"/>
+    /// event whose unit decodes to a key, with that key. This is the handler a
+    /// component actually keys off — the string payload of <see cref="OnInput"/>
+    /// still carries the raw unit (<c>"\x1b[A"</c>), this one carries
+    /// <see cref="Key.ArrowUp"/>. Invoked before <see cref="OnInput"/> and
+    /// <see cref="OnEvent"/> for the same event.
+    /// </summary>
+    public Action<Key>? OnKey { get; set; }
+
     public UiLoop(ITerminal terminal)
     {
         _screen = new ScreenRenderer(terminal);
@@ -57,8 +82,24 @@ public sealed class UiLoop
                 // drain a batch: high-frequency events coalesce into one frame
                 while (_channel.Reader.TryRead(out var e))
                 {
+                    // 04-C1: hand the event to the consumer before it is gone
                     if (e.Kind == EventKind.Resize)
                         _root?.Invalidate();
+                    else if (e.Kind == EventKind.Input)
+                    {
+                        // 04-C1: hand the key sequence to the consumer. No
+                        // Invalidate(): Post() already marked the loop dirty, and a
+                        // keystroke must not drop width-keyed render caches.
+                        // F9-2: the key itself goes out first (producers normally
+                        // decode it, see InputBridge); a producer that only posted a
+                        // string is decoded here so no input event is key-less.
+                        var key = e.Key ?? KeyDecoder.Decode(e.Input ?? "");
+                        if (key is { } decoded)
+                            OnKey?.Invoke(decoded);
+                        if (e.Input is { Length: > 0 } input)
+                            OnInput?.Invoke(input);
+                    }
+                    OnEvent?.Invoke(e);
                 }
                 // the wake reason decides the commit: the elapsed-time check is only a
                 // guard for early event wakes (a frozen/jumping clock cannot stall it)

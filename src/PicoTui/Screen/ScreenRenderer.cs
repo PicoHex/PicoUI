@@ -15,6 +15,14 @@ public sealed class ScreenRenderer
 
     public ScreenRenderer(ITerminal terminal) => _terminal = terminal;
 
+    /// <summary>
+    /// The frame this renderer last drew (null before the first one). Guard
+    /// surface for F9-1: after two frames the tracked buffer must be the frame
+    /// that is on screen, otherwise the diff would be computed against a frame
+    /// that was never painted.
+    /// </summary>
+    internal ScreenBuffer? PreviousFrame => _prev;
+
     /// <summary>Neutralizes control characters coming from rendered content:
     /// untrusted text (LLM/tool output) must not inject terminal escapes.</summary>
     internal static int NeutralizeRune(int rune) =>
@@ -24,7 +32,11 @@ public sealed class ScreenRenderer
     {
         var width = _terminal.Columns;
         var height = _terminal.Rows;
-        var lines = root.Render(width);
+        // 05-C2: the height goes down to the root, so a vertical stack can honour
+        // Grow/Shrink/Basis and a scroll view can clip to its viewport. Components
+        // that only implement Render(int) keep working through the interface's
+        // default member.
+        var lines = root.Render(width, height);
 
         var next = new ScreenBuffer();
         next.Resize(height, width);
@@ -49,8 +61,15 @@ public sealed class ScreenRenderer
 
         if (_prev is null)
         {
-            // First render: full output, no scrollback clear
-            _terminal.Write(AnsiEncoder.WrapSynchronized(RenderFull(next)));
+            // F9-1 (05-C1 residual): the first frame needs the same erase+home as a
+            // full redraw. TuiLifecycle.Enter switches to the alternate screen, which
+            // inherits whatever cursor row the shell left behind, and ED(2J) never
+            // moves the cursor — so an unpositioned first frame starts drawing at the
+            // inherited row, wraps, and leaves every later absolute-CUP row offset for
+            // the rest of the session (the diff only repaints changed rows).
+            _terminal.Write(
+                AnsiEncoder.WrapSynchronized("\x1b[2J\x1b[H" + RenderFull(next))
+            );
             _prev = next.CopyForDiff();
             return;
         }
@@ -62,8 +81,14 @@ public sealed class ScreenRenderer
         string body;
         if (diff.NeedsFullRedraw)
         {
-            // clear screen + full re-render (width changed or >50% rows changed)
-            body = "\x1b[2J" + RenderFull(next);
+            // clear screen + full re-render (width changed or >50% rows changed).
+            // 05-C1: ED(2J) only erases — per ECMA-48/xterm it never moves the
+            // cursor, so the frame would start drawing wherever the previous one
+            // ended (bottom-right ⇒ wrap-around, permanent scrambling). CUP home
+            // must follow immediately; erase-then-home keeps the home as the last
+            // positioning op before the body and makes the intent (“start at 1;1”)
+            // greppable in the emitted bytes.
+            body = "\x1b[2J\x1b[H" + RenderFull(next);
         }
         else
         {

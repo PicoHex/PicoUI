@@ -20,6 +20,9 @@ public sealed class VStack : IComponent
     /// Layout pass over <c>(width, availableHeight)</c> per spec §6.2:
     /// natural/basis allocation, grow distribution, shrink on overflow.
     /// </summary>
+    /// <remarks>Grow shares are computed from the frozen remaining total and the
+    /// rounding remainder is handed out one row at a time in (Grow descending,
+    /// declaration order) — see the pass below.</remarks>
     public string[] Render(int width, int availableHeight)
     {
         var visible = _items
@@ -39,33 +42,54 @@ public sealed class VStack : IComponent
 
         var allocated = heights.Sum();
 
-        // 5-6: remaining > 0 → distribute by Grow weight among Grow>0 items
+        // 5-6: remaining > 0 → distribute by Grow weight among Grow>0 items.
         if (allocated < availableHeight)
         {
-            var remaining = availableHeight - allocated;
+            var pool = availableHeight - allocated;
             var growTotal = visible.Sum(i => Math.Max(0, i.Grow));
             if (growTotal > 0)
             {
-                for (var i = 0; i < visible.Count && remaining > 0; i++)
+                // 05-H1: the numerator is the FROZEN remaining total, not a
+                // running remainder that has already been decremented — otherwise
+                // equal weights split 7:3 instead of 5:5 / 20:20.
+                var total = pool;
+                for (var i = 0; i < visible.Count; i++)
                 {
                     if (visible[i].Grow <= 0)
                         continue;
-                    var share = remaining * Math.Max(0, visible[i].Grow) / growTotal;
+                    var share = total * Math.Max(0, visible[i].Grow) / growTotal;
                     var headroom = Math.Max(0, visible[i].MaxSize - heights[i]);
                     var add = Math.Min(share, headroom);
                     heights[i] += add;
-                    remaining -= add;
+                    pool -= add;
                 }
-            }
-            // leftover (int rounding) → first grow item with headroom
-            for (var i = 0; i < visible.Count && remaining > 0; i++)
-            {
-                if (visible[i].Grow <= 0)
-                    continue;
-                var headroom = Math.Max(0, visible[i].MaxSize - heights[i]);
-                var add = Math.Min(remaining, headroom);
-                heights[i] += add;
-                remaining -= add;
+
+                // Deterministic rule for the remainder (integer rounding plus
+                // shares dropped by MaxSize): hand out one row at a time in
+                // (Grow descending, declaration order) while any headroom is left,
+                // instead of dropping the whole remainder on the first item.
+                var order = Enumerable
+                    .Range(0, visible.Count)
+                    .Where(i => visible[i].Grow > 0)
+                    .OrderByDescending(i => visible[i].Grow)
+                    .ThenBy(i => i)
+                    .ToList();
+                while (pool > 0)
+                {
+                    var progressed = false;
+                    foreach (var i in order)
+                    {
+                        if (pool <= 0)
+                            break;
+                        if (heights[i] >= visible[i].MaxSize)
+                            continue;
+                        heights[i]++;
+                        pool--;
+                        progressed = true;
+                    }
+                    if (!progressed)
+                        break; // every grow item is at MaxSize
+                }
             }
         }
         // 7: remaining < 0 (overflow) → shrink by Shrink weight, down to MinSize
@@ -108,7 +132,9 @@ public sealed class VStack : IComponent
         var result = new List<string>();
         for (var i = 0; i < visible.Count; i++)
         {
-            var lines = visible[i].Component.Render(width);
+            // 05-C2: the allocated height goes down to the child, so a scroll view
+            // clips to its viewport instead of being sliced after the fact.
+            var lines = visible[i].Component.Render(width, heights[i]);
             var h = heights[i];
             for (var l = 0; l < h; l++)
                 result.Add(l < lines.Length ? lines[l] : "");

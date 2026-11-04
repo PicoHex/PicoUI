@@ -35,6 +35,36 @@ public static class WidthTable
         return sb.ToString();
     }
 
+    /// <summary>
+    /// Tail of <paramref name="s"/> that fits in <paramref name="max"/> display
+    /// columns, cut at a rune boundary (06-H6): a single-line input shows the end
+    /// of the buffer, and slicing by UTF-16 code units split surrogate pairs and
+    /// let a wide rune overflow the terminal width.
+    /// </summary>
+    public static string TailToWidth(string s, int max)
+    {
+        if (max <= 0)
+            return "";
+        var runes = s.EnumerateRunes().ToArray();
+        var width = 0;
+        var start = runes.Length;
+        for (var i = runes.Length - 1; i >= 0; i--)
+        {
+            var cw = RuneColumns(runes[i].Value);
+            if (width + cw > max)
+                break;
+            width += cw;
+            start = i;
+        }
+        // do not start the window on an orphaned mark/joiner: its base was cut off
+        while (start < runes.Length && IsZeroWidth(runes[start].Value))
+            start++;
+        var sb = new StringBuilder();
+        for (var i = start; i < runes.Length; i++)
+            sb.Append(runes[i]);
+        return sb.ToString();
+    }
+
     public static bool IsWide(int c) =>
         c
             is >= 0x1100
