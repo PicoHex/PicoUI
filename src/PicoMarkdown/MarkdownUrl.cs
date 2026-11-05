@@ -9,9 +9,10 @@ namespace PicoMarkdown;
 /// <see cref="AstNode"/>), including <c>javascript:</c> and <c>data:</c> destinations. A
 /// renderer must pass every URL through <see cref="Sanitize"/> before emitting it.</para>
 /// <para>The policy is identical to <c>PicoHtmx.H.Url</c> (same whitelist, same scheme
-/// detection, same empty-input behaviour) and the two are pinned together by a parity
-/// test. Keep them in lockstep — a renderer that mixes markdown links with HTML helpers
-/// must not be able to reach two different verdicts for the same URL.</para>
+/// detection, same <c>data:</c> exception, same empty-input behaviour) and the two are
+/// pinned together by a parity test. Keep them in lockstep — a renderer that mixes markdown
+/// links with HTML helpers must not be able to reach two different verdicts for the same
+/// URL.</para>
 /// </remarks>
 public static class MarkdownUrl
 {
@@ -20,9 +21,10 @@ public static class MarkdownUrl
 
     /// <summary>
     /// Keeps a relative URL or a URL whose scheme is one of <c>http</c>, <c>https</c>,
-    /// <c>mailto</c> or <c>tel</c> (compared case-insensitively); everything else —
-    /// <c>javascript:</c>, <c>data:</c>, <c>vbscript:</c>, any other scheme — becomes
-    /// <see cref="Fallback"/>.
+    /// <c>mailto</c> or <c>tel</c> (compared case-insensitively), plus the ONE safe subset of
+    /// <c>data:</c> — <c>data:image/(png|jpeg|jpg|gif|webp);base64,…</c>; everything else —
+    /// <c>javascript:</c>, <c>data:text/html</c>, <c>data:image/svg+xml</c>, <c>vbscript:</c>,
+    /// any other scheme — becomes <see cref="Fallback"/>.
     /// </summary>
     /// <param name="url">Raw destination taken from the AST.</param>
     /// <returns>The destination (ends trimmed, ASCII control characters removed — a browser
@@ -66,7 +68,51 @@ public static class MarkdownUrl
         var scheme = value[..colon];
         if (!IsSchemeToken(scheme))
             return false; // not a scheme at all — the browser treats it as relative
+        if (scheme.Equals(DataScheme, StringComparison.OrdinalIgnoreCase))
+            return !IsAllowedDataUri(value); // the ONE scheme with a vetted safe subset
         return !IsAllowedScheme(scheme);
+    }
+
+    private const string DataScheme = "data";
+
+    /// <summary>Raster image media types whose <c>data:</c> URIs are safe to render. SVG is
+    /// deliberately absent: <c>data:image/svg+xml</c> is a DOCUMENT, not pixels — it runs
+    /// <c>&lt;script&gt;</c> inside whichever document embeds it, which is script injection
+    /// wearing an image label. <c>image/bmp</c>, <c>image/tiff</c>, … earn nothing on a page.</summary>
+    private static readonly string[] SafeDataImageTypes =
+    [
+        "image/png",
+        "image/jpeg",
+        "image/jpg",
+        "image/gif",
+        "image/webp",
+    ];
+
+    /// <summary>True only for <c>data:image/(png|jpeg|jpg|gif|webp);base64,&lt;payload&gt;</c>.
+    /// <para>The <c>;base64</c> marker must be the last parameter before the comma: a
+    /// percent-encoded payload (<c>data:image/png,XXX</c>) or an extra parameter
+    /// (<c>data:image/png;charset=utf-8;base64,…</c>) is not the form a browser image encoder
+    /// produces, and each of those shapes is a way to smuggle a document past a check that
+    /// only looked at the prefix.</para>
+    /// <para>This is the same algorithm as <c>PicoHtmx.H.Url</c>, step for step, and a parity
+    /// test pins the two together.</para></summary>
+    private static bool IsAllowedDataUri(string url)
+    {
+        const string prefix = "data:";
+        const string base64Suffix = ";base64";
+        if (!url.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            return false;
+        var comma = url.IndexOf(',', StringComparison.Ordinal);
+        if (comma < 0)
+            return false;
+        var header = url[prefix.Length..comma];
+        if (!header.EndsWith(base64Suffix, StringComparison.OrdinalIgnoreCase))
+            return false;
+        var mediaType = header[..^base64Suffix.Length];
+        return Array.Exists(
+            SafeDataImageTypes,
+            type => type.Equals(mediaType, StringComparison.OrdinalIgnoreCase)
+        );
     }
 
     /// <summary>

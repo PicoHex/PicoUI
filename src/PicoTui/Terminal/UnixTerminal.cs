@@ -10,7 +10,6 @@ public sealed class UnixTerminal : ITerminal, IDisposable
 
     private Action? _onResize;
     private ExitGuard? _exitGuard;
-    private PosixSignalRegistration? _winch;
     private StdinPump? _pump;
     private Exception? _readerFault;
     private TerminalFault? _modeFault;
@@ -29,16 +28,22 @@ public sealed class UnixTerminal : ITerminal, IDisposable
     /// Production uses the default one; a test injects a guard with a fake signal
     /// registrar / process-exit source to prove that a failed registration is
     /// <em>reported</em> instead of being assumed.</param>
+    /// <param name="resizeSignalRegistrar">Test seam (F13): the SIGWINCH registration used
+    /// by <see cref="TerminalGeometry"/>. Production passes <see langword="null"/> (the real
+    /// <see cref="PosixSignalRegistration"/>); a test injects a registrar that works on every
+    /// OS, so the wiring — not just the <c>ResizeSignalRegistered</c> bool — is asserted on
+    /// Windows too.</param>
     internal UnixTerminal(
         ITermiosOps termios,
         IWinsizeProbe winsize,
         bool runSystemHooks,
         Func<Action<string>, StdinPump> pumpFactory,
-        Func<Action, ExitGuard>? exitGuardFactory = null
+        Func<Action, ExitGuard>? exitGuardFactory = null,
+        SignalRegistrar? resizeSignalRegistrar = null
     )
     {
         _rawMode = new RawModeSession(termios);
-        _geometry = new TerminalGeometry(winsize);
+        _geometry = new TerminalGeometry(winsize, resizeSignalRegistrar);
         _runSystemHooks = runSystemHooks;
         _pumpFactory = pumpFactory;
         _exitGuardFactory = exitGuardFactory ?? (restore => new ExitGuard(restore));
@@ -59,8 +64,15 @@ public sealed class UnixTerminal : ITerminal, IDisposable
     /// <summary>True while the tty is in raw mode (04-C2 guard surface).</summary>
     internal bool IsRawMode => _rawMode.IsRaw;
 
-    /// <summary>True when a SIGWINCH hook is installed (04-H5 wiring surface).</summary>
-    internal bool ResizeSignalRegistered => _winch is not null;
+    /// <summary>True when a SIGWINCH hook is installed (04-H5 wiring surface). Derived
+    /// from the live handle — F13: the old field was unreachable on Windows, where the
+    /// registration returned early, which is what let the guard pass with the call
+    /// deleted.</summary>
+    internal bool ResizeSignalRegistered => _geometry.ResizeSignalRegistered;
+
+    /// <summary>The resize signals actually registered for this session (04-H5 guard
+    /// surface, F13): empty on the Windows console, which has no SIGWINCH.</summary>
+    internal IReadOnlyList<PosixSignal> ResizeSignals => _geometry.RegisteredResizeSignals;
 
     /// <summary>True when the abnormal-exit restore hook is armed (04-H2 surface).</summary>
     internal bool ExitGuardInstalled => _exitGuard is { IsRegistered: true };
@@ -189,8 +201,9 @@ public sealed class UnixTerminal : ITerminal, IDisposable
         _exitGuard?.Dispose();
         _exitGuard = null;
 
-        _winch?.Dispose();
-        _winch = null;
+        // 04-H5 / F13: the hook is released symmetrically, so a restarted session does not
+        // leak one registration per Start().
+        _geometry.ReleaseResizeSignal();
 
         // F10b (04-C2 residual): Stop() — not Dispose() — is the shutdown every host
         // runs (ExitAsync calls it). Cancelling the token alone left the blocked Read
@@ -234,19 +247,14 @@ public sealed class UnixTerminal : ITerminal, IDisposable
 
     public Task DrainInputAsync(int maxMs, int idleMs) => Task.Delay(Math.Min(maxMs, 50));
 
-    private void RegisterResizeSignal()
-    {
-        if (OperatingSystem.IsWindows())
-            return; // no SIGWINCH; the frame loop calls RefreshGeometry() instead
-        try
-        {
-            _winch = PosixSignalRegistration.Create(PosixSignal.SIGWINCH, OnWindowChanged);
-        }
-        catch (PlatformNotSupportedException)
-        {
-            /* degraded mode: no resize notification */
-        }
-    }
+    /// <summary>
+    /// 04-H5: arms the resize hook through <see cref="TerminalGeometry"/>. F13: this used to
+    /// return early on Windows and to hide the handle in a private field, so nothing could
+    /// observe whether the registration happened. The gap (no SIGWINCH on the Windows
+    /// console) is now <em>reported</em> by <see cref="ResizeSignalRegistered"/> being false,
+    /// instead of being hidden behind a platform <c>if</c> whose deletion no test could see.
+    /// </summary>
+    private void RegisterResizeSignal() => _geometry.RegisterResizeSignal(OnWindowChanged);
 
     private void OnWindowChanged(PosixSignalContext context)
     {

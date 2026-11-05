@@ -13,8 +13,8 @@ namespace PicoHtmx.Tests;
 public sealed class Regression_F10_L4_UrlParityTests
 {
     /// <summary>
-    /// The 22-case shared corpus. <c>Expected</c> is spelled out so the parity check cannot
-    /// pass by both sides being equally wrong.
+    /// The shared corpus (extended by F13 with the <c>data:</c> verdicts). <c>Expected</c> is
+    /// spelled out so the parity check cannot pass by both sides being equally wrong.
     /// </summary>
     public static IEnumerable<(string Input, string Expected)> SharedCorpus()
     {
@@ -41,6 +41,12 @@ public sealed class Regression_F10_L4_UrlParityTests
         yield return ("  javascript:alert(1)  ", "about:blank");
         yield return ("data:text/html,<script>", "about:blank");
         yield return ("vbscript:msgbox(1)", "about:blank");
+
+        // F13: the safe raster-image data URIs are RENDERED, the rest of data: is not
+        yield return ("data:image/png;base64,AAAA", "data:image/png;base64,AAAA");
+        yield return ("data:image/gif;base64,R0lGODlh", "data:image/gif;base64,R0lGODlh");
+        yield return ("data:image/svg+xml;base64,PHN2Zz4=", "about:blank");
+        yield return ("data:image/png,XXX", "about:blank");
 
         // whitespace is preserved, control characters are not
         yield return ("a b", "a b");
@@ -113,6 +119,25 @@ public sealed class Regression_F10_L4_UrlParityTests
         await Assert.That(MarkdownUrl.Sanitize("   ")).IsEqualTo("");
         await Assert.That(H.Url(null)).IsEqualTo("");
         await Assert.That(H.Url("")).IsEqualTo("");
+    }
+
+    /// <summary>F13: the raster-image <c>data:</c> subset is the ONE non-whitelisted scheme
+    /// that survives — both libraries must agree on exactly which form qualifies.</summary>
+    [Test]
+    public async Task SafeDataImageUris_PassInBothLibraries()
+    {
+        foreach (var url in new[]
+        {
+            "data:image/png;base64,AAAA",
+            "data:image/jpeg;base64,AAAA",
+            "data:image/jpg;base64,AAAA",
+            "data:image/gif;base64,AAAA",
+            "data:image/webp;base64,AAAA",
+        })
+        {
+            await Assert.That(H.Url(url)).IsEqualTo(url);
+            await Assert.That(MarkdownUrl.Sanitize(url)).IsEqualTo(url);
+        }
     }
 
     /// <summary>Control characters are dropped before scheme detection — <c>java\tscript:</c>

@@ -26,10 +26,11 @@ public static class H
     /// <summary>Substituted for any URL whose scheme is not allowlisted.</summary>
     public const string UnsafeUrl = "about:blank";
 
-    /// <summary>The only URL schemes that may appear in a rendered attribute.
-    /// Everything else (<c>javascript:</c>, <c>data:</c>, <c>vbscript:</c>, …) is
-    /// replaced with <see cref="UnsafeUrl"/> — quote escaping alone stops attribute
-    /// breakout but NOT scheme abuse.</summary>
+    /// <summary>The URL schemes that may appear in a rendered attribute. Everything else
+    /// (<c>javascript:</c>, <c>vbscript:</c>, <c>file:</c>, …) is replaced with
+    /// <see cref="UnsafeUrl"/> — quote escaping alone stops attribute breakout but NOT
+    /// scheme abuse. <c>data:</c> is not listed here because it is not allowed wholesale: it
+    /// has one narrow safe subset, decided by <see cref="IsAllowedDataUri"/>.</summary>
     private static readonly HashSet<string> AllowedUrlSchemes = new(
         StringComparer.OrdinalIgnoreCase
     )
@@ -40,17 +41,23 @@ public static class H
         "tel",
     };
 
-    /// <summary>Attribute names whose value is a URL and therefore must pass
-    /// <see cref="Url"/> no matter how it arrived — including through an attribute
-    /// bag (<c>new { href = ... }</c>), which used to reach the writer unfiltered.
-    /// <c>xlink:href</c> cannot be spelled as a C# property name, but the gate keys
-    /// off the RENDERED name, so it is covered if a bag ever produces one.</summary>
+    /// <summary>The complete set of attribute names whose value is a URL, so the writer
+    /// must run them through <see cref="Url"/> no matter how they arrived — including
+    /// through an attribute bag (<c>new { href = ... }</c>), which used to reach the writer
+    /// unfiltered. The set is closed on purpose: a new URL-bearing attribute has to be added
+    /// here, and a guard asserts the gated names.
+    /// <para><c>poster</c> (the <c>&lt;video&gt;</c> cover image) IS gated: the browser fetches
+    /// and decodes it exactly like <c>src</c>, so <c>javascript:</c> there is the same defect
+    /// as on <c>src</c>; leaving it out would have been an arbitrary hole.</para>
+    /// <para><c>xlink:href</c> cannot be spelled as a C# property name, but the gate keys off
+    /// the RENDERED name, so it is covered if a bag ever produces one.</para></summary>
     private static readonly HashSet<string> UrlAttributes = new(StringComparer.OrdinalIgnoreCase)
     {
         "href",
         "src",
         "action",
         "formaction",
+        "poster",
         "xlink:href",
     };
 
@@ -81,11 +88,26 @@ public static class H
     /// break (and an extra <c>&lt;img&gt;</c> request).</remarks>
     public static RawHtml Raw(string? html) => new(html);
 
+    /// <summary>Marks a URL as already vetted: the attribute writer emits it verbatim instead
+    /// of running the scheme whitelist of <see cref="Url"/>.</summary>
+    /// <remarks>ONLY for constants and for values the caller has sanitized itself
+    /// ("javascript:"-free, origin-checked, …). Everything that came from a user, a request,
+    /// a database row or a model belongs in a plain <see cref="string"/>, where
+    /// <see cref="Url"/> decides. The value is still HTML-escaped by the writer — this type
+    /// waives the URL policy, never the attribute escaping.</remarks>
+    public static RawUrl RawUrl(string? url) => new(url);
+
     // ── URL context ───────────────────────────────────────────────────────
 
-    /// <summary>Sanitizes a URL for an <c>href</c>/<c>src</c>/<c>hx-*</c> attribute:
-    /// relative references and the http/https/mailto/tel schemes pass through,
+    /// <summary>Sanitizes a URL for an <c>href</c>/<c>src</c>/<c>poster</c>/<c>hx-*</c>
+    /// attribute: relative references and the http/https/mailto/tel schemes pass through,
     /// every other scheme degrades to <see cref="UnsafeUrl"/>.
+    /// <para>The single exception is the safe <c>data:</c> subset — see
+    /// <see cref="IsAllowedDataUri"/>: <c>data:image/(png|jpeg|jpg|gif|webp);base64,…</c> is
+    /// kept (that is how a favicon or an inline image is spelled, and rewriting it to
+    /// <see cref="UnsafeUrl"/> broke every such page). <c>data:image/svg+xml</c>,
+    /// <c>data:text/html</c>, <c>data:application/*</c> and the non-base64 form stay blocked:
+    /// they are documents that can run script, not pixels.</para>
     /// <para>Tabs/newlines and other C0 controls are removed first (a browser ignores
     /// them, so <c>"java\tscript:"</c> would otherwise sneak through), then the ends are
     /// trimmed. Internal SPACES are content and are never deleted — callers that need a
@@ -122,7 +144,51 @@ public static class H
         var scheme = url[..colon];
         if (!IsSchemeToken(scheme))
             return false; // not a scheme at all — the browser treats it as relative
+        if (scheme.Equals(DataScheme, StringComparison.OrdinalIgnoreCase))
+            return !IsAllowedDataUri(url); // the ONE scheme with a vetted safe subset
         return !AllowedUrlSchemes.Contains(scheme);
+    }
+
+    private const string DataScheme = "data";
+
+    /// <summary>Raster image media types whose <c>data:</c> URIs are safe to render. SVG is
+    /// deliberately absent: <c>data:image/svg+xml</c> is a DOCUMENT, not pixels — it runs
+    /// <c>&lt;script&gt;</c> inside whichever document embeds it, which is script injection
+    /// wearing an image label. <c>image/bmp</c>, <c>image/tiff</c>, … earn nothing on a page.</summary>
+    private static readonly string[] SafeDataImageTypes =
+    [
+        "image/png",
+        "image/jpeg",
+        "image/jpg",
+        "image/gif",
+        "image/webp",
+    ];
+
+    /// <summary>True only for <c>data:image/(png|jpeg|jpg|gif|webp);base64,&lt;payload&gt;</c>.
+    /// <para>The <c>;base64</c> marker must be the last parameter before the comma: a
+    /// percent-encoded payload (<c>data:image/png,XXX</c>) or an extra parameter
+    /// (<c>data:image/png;charset=utf-8;base64,…</c>) is not the form a browser image encoder
+    /// produces, and each of those shapes is a way to smuggle a document past a check that
+    /// only looked at the prefix.</para>
+    /// <para>This is the same algorithm as <c>PicoMarkdown.MarkdownUrl.Sanitize</c>, step for
+    /// step, and a parity test pins the two together.</para></summary>
+    private static bool IsAllowedDataUri(string url)
+    {
+        const string prefix = "data:";
+        const string base64Suffix = ";base64";
+        if (!url.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            return false;
+        var comma = url.IndexOf(',', StringComparison.Ordinal);
+        if (comma < 0)
+            return false;
+        var header = url[prefix.Length..comma];
+        if (!header.EndsWith(base64Suffix, StringComparison.OrdinalIgnoreCase))
+            return false;
+        var mediaType = header[..^base64Suffix.Length];
+        return Array.Exists(
+            SafeDataImageTypes,
+            type => type.Equals(mediaType, StringComparison.OrdinalIgnoreCase)
+        );
     }
 
     /// <summary>Percent-encodes one query-string key or value (RFC 3986 unreserved
@@ -432,6 +498,13 @@ public static class H
             {
                 if (boolValue)
                     sb.Append(' ').Append(name).Append("=\"\"");
+                continue;
+            }
+            // H.RawUrl: the caller has already vetted this URL, so the scheme whitelist is
+            // skipped. Escaping is NOT skipped — trust covers the scheme, never breakout.
+            if (raw is RawUrl rawUrl)
+            {
+                sb.Append(' ').Append(name).Append("=\"").Append(E(rawUrl.Value)).Append('"');
                 continue;
             }
             var val = raw?.ToString();
