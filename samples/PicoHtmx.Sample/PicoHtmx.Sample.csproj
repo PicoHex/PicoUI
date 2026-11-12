@@ -13,10 +13,9 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\PicoHtmx\PicoHtmx.csproj" />
   </ItemGroup>
-  <ItemGroup Condition="'$(UseSiblingProjectReferences)' == 'true'">
-    <ProjectReference Include="..\..\..\PicoNode\src\Web\PicoWeb\PicoWeb.csproj" />
-  </ItemGroup>
-  <ItemGroup Condition="'$(UseSiblingProjectReferences)' != 'true'">
+  <!-- Cross-repo dependency: consumed as a published package only (no sibling
+       source switching — cross-repo deps never build another repo's sources). -->
+  <ItemGroup>
     <PackageReference Include="PicoWeb" />
   </ItemGroup>
 </Project>

@@ -47,17 +47,16 @@
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <DebugType>portable</DebugType>
 
-    <!-- Default: use project references for local dev -->
+    <!-- Default: use project references for local dev.
+         Scope: THIS repository only (PicoMarkdown/PicoMermaid source vs. package
+         for PicoTui and friends). Cross-repo dependencies (PicoNode) are
+         package-only — see src/PicoHtmx/PicoHtmx.csproj. -->
     <UseProjectReferences Condition="'$(UseProjectReferences)' == ''">true</UseProjectReferences>
 
-    <!-- PicoHtmx references PicoWeb (PicoNode repo, network/web stack):
-         sibling project ref when the PicoNode repo is checked out next to
-         this one (local dev / CI); published package otherwise. -->
-    <UseSiblingProjectReferences
-      Condition="'$(UseSiblingProjectReferences)' == '' and '$(UseProjectReferences)' == 'true' and Exists('$(MSBuildThisFileDirectory)..\PicoNode\src\Web\PicoWeb\PicoWeb.csproj')"
-      >true</UseSiblingProjectReferences>
-    <UseSiblingProjectReferences Condition="'$(UseSiblingProjectReferences)' == ''"
-      >false</UseSiblingProjectReferences>
+    <!-- Cross-repo dependencies are consumed as published packages, always.
+         There is deliberately no sibling-repo detection here: building another
+         repository's sources from this one made `dotnet build PicoUI.slnx`
+         silently ignore this repo's own package versions. -->
 
     <!-- Default: don't pack unless opted in -->
     <IsPackable Condition="'$(IsPackable)' == ''">false</IsPackable>

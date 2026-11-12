@@ -21,21 +21,16 @@
     <None Include="..\..\README.md" Pack="true" PackagePath="" Visible="false" />
   </ItemGroup>
 
-  <!-- Cross-repo reference: PicoNode.Http + PicoNode.Web (network/web layers).
-       Sibling project refs when the PicoNode repo is checked out next to this
-       one (local dev / CI); published packages otherwise.
+  <!-- Cross-repo reference: PicoNode.Http + PicoNode.Web (network/web layers),
+       consumed as published packages only — no sibling source switching:
+       cross-repo dependencies never build another repository's sources here.
        NOTE: deliberately NOT PicoWeb — its package props inject source
        generators into every consumer (a placeholder EndpointRegistrar is
        emitted even for libraries with zero controllers, CS0436 in library
        consumers). PicoHtmx only needs the HTTP + Web layers. Upstream
        follow-up (PicoNode): Controllers.Gen should emit nothing for empty
        controller sets. -->
-  <ItemGroup Condition="'$(UseSiblingProjectReferences)' == 'true'">
-    <ProjectReference Include="..\..\..\PicoNode\src\Http\PicoNode.Http\PicoNode.Http.csproj" />
-    <ProjectReference Include="..\..\..\PicoNode\src\Web\PicoNode.Web\PicoNode.Web.csproj" />
-  </ItemGroup>
-
-  <ItemGroup Condition="'$(UseSiblingProjectReferences)' != 'true'">
+  <ItemGroup>
     <PackageReference Include="PicoNode.Http" />
     <PackageReference Include="PicoNode.Web" />
   </ItemGroup>
