@@ -64,10 +64,17 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y clang zlib1g-dev
 
+      # Locked mode: the committed packages.lock.json files are authoritative, so
+      # a re-resolved graph fails HERE instead of silently building versions
+      # nobody reviewed. Moving the locks is deps-refresh.yml's job, not a
+      # build's. This restore is the default (RID-less) graph the locks describe,
+      # and the sibling PicoNode checkout above is part of that graph: with it
+      # present UseSiblingProjectReferences=true, so PicoHtmx links sibling SOURCE
+      # and PicoNode.Http/PicoNode.Web are not packages at all.
       - name: Restore
         run: |
           mkdir -p artifacts/nupkg
-          dotnet restore PicoUI.slnx
+          dotnet restore PicoUI.slnx -p:RestoreLockedMode=true
 
       # Build per project (not via the solution): a solution build dispatches
       # the out-of-solution sibling PicoNode projects with their default Debug
@@ -101,6 +108,13 @@ jobs:
       # run smokes on linux-x64 (Markdown/Mermaid run standalone; the Htmx
       # sample is served and probed because its attribute writer is the
       # trim-sensitive path).
+      #
+      # These publishes restore again, deliberately NOT locked: `-r <rid>` and
+      # `-p:PublishAot=true` reshape the graph, and the Htmx one adds
+      # `-p:UseSiblingProjectReferences=false` (a fully packaged graph) — one
+      # packages.lock.json can only describe the RID-less default build. They run
+      # after every locked restore in this job and never feed one, so nothing
+      # unguarded reaches the compile graph; they only touch this run's tree.
       - name: AOT publish validation (PicoMarkdown.Sample)
         run: dotnet publish samples/PicoMarkdown.Sample/PicoMarkdown.Sample.csproj -c Release -r ${{ matrix.rid }} -p:PublishAot=true
 

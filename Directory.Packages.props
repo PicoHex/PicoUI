@@ -1,18 +1,39 @@
 <Project>
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <!-- Opt-in (NU1011): CPM refuses floating PackageVersion items unless
+         this is on. The float is deliberate and bounded to the y segment —
+         see the one-party ItemGroup below. -->
+    <CentralPackageFloatingVersionsEnabled>true</CentralPackageFloatingVersionsEnabled>
   </PropertyGroup>
   <ItemGroup>
     <PackageVersion Include="TUnit" Version="1.83.8" />
   </ItemGroup>
   <ItemGroup>
     <!-- PicoHtmx depends on PicoNode.Http + PicoNode.Web (PicoNode repo,
-         network/web layers; deliberately not PicoWeb — see PicoHtmx.csproj). -->
-    <PackageVersion Include="PicoNode.Http" Version="2026.6.0" />
-    <PackageVersion Include="PicoNode.Web" Version="2026.6.0" />
+         network/web layers; deliberately not PicoWeb — see PicoHtmx.csproj).
+
+         PicoHex versions are <year>.<x>.<y>: x+1 = the public API changed,
+         y+1 = it did not. '2026.<x>.*' is therefore the only safe floating
+         level ('2026.*' is forbidden) — and only for packages that inject no
+         MSBuild analyzer / source generator, because a generator is a
+         build-time contract whose minor line must stay pinned.
+
+         Classified mechanically per package with
+           unzip -l ~/.nuget/packages/<id>/<ver>/*.nupkg | grep -c analyzers/dotnet
+           PicoNode.Http, PicoNode.Web : 0 analyzers, no build/buildTransitive props
+             -> y-float.
+           PicoWeb : 2 analyzers (Controllers.Gen, PicoWeb.Gen) plus
+             buildTransitive/PicoWeb.props that registers them in every consumer
+             -> keep exact.
+           PicoJetson : 1 analyzer (PicoJetson.Gen) plus build/PicoJetson.targets
+             that sets InterceptorsNamespaces -> keep exact. -->
+    <PackageVersion Include="PicoNode.Http" Version="2026.6.*" />
+    <PackageVersion Include="PicoNode.Web" Version="2026.6.*" />
     <PackageVersion Include="PicoJetson" Version="2026.13.3" />
     <!-- PicoHtmx.Sample runs on a full PicoWeb app (WebApp/WebServer); the
-         module itself deliberately does not reference PicoWeb. -->
+         module itself deliberately does not reference PicoWeb. Pinned for the
+         reason above. -->
     <PackageVersion Include="PicoWeb" Version="2026.6.0" />
   </ItemGroup>
   <PropertyGroup>

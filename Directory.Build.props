@@ -10,6 +10,16 @@
     <!-- Central Package Management -->
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
 
+    <!-- Lock files pin the resolved graph so the y-floating versions in
+         Directory.Packages.props (2026.<x>.*) stay reproducible: a restore that
+         would move a floating or transitive dependency fails instead of drifting
+         silently. CI restores with -p:RestoreLockedMode=true; deps-refresh.yml
+         re-evaluates the lock weekly and opens a PR when it moves.
+         Only projects under this repo get a lock file — the sibling PicoNode
+         projects pulled in by PicoHtmx/PicoHtmx.Sample evaluate PicoNode's own
+         Directory.Build.props, not this one. -->
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+
     <!-- Deterministic builds when CI=true -->
     <Deterministic>true</Deterministic>
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
