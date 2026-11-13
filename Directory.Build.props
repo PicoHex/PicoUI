@@ -7,8 +7,11 @@
     <!-- Default version for local / non-CI builds -->
     <Version Condition="'$(Version)' == ''">0.0.0-dev</Version>
 
-    <!-- Central Package Management -->
-    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <!-- Central Package Management. The CPM switches themselves
+         (ManagePackageVersionsCentrally, CentralPackageFloatingVersionsEnabled,
+         CentralPackageTransitivePinningEnabled) live in Directory.Packages.props,
+         next to the versions they govern. Declaring this one here as well gave
+         one property two sources of truth, and only the later import won. -->
 
     <!-- Lock files pin the resolved graph so the y-floating versions in
          Directory.Packages.props (2026.<x>.*) stay reproducible: a restore that
@@ -19,6 +22,15 @@
          projects pulled in by PicoHtmx/PicoHtmx.Sample evaluate PicoNode's own
          Directory.Build.props, not this one. -->
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <!-- Never bake an implicit publish RID into the lock files. The SDK
+         defaults the publish RuntimeIdentifier to the host's as soon as a
+         project turns PublishAot on, so a lock refreshed that way records the
+         RID of the machine that refreshed it and every other leg of the CI
+         matrix then fails NU1004 (the project's runtime identifiers have
+         changed). With the default off, RuntimeIdentifiers stays empty unless
+         a RID is asked for, and each publish in .github/workflows/ci.yml asks
+         for one explicitly, which restores that RID's assets on demand. -->
+    <UseDefaultPublishRuntimeIdentifier>false</UseDefaultPublishRuntimeIdentifier>
 
     <!-- Deterministic builds when CI=true -->
     <Deterministic>true</Deterministic>

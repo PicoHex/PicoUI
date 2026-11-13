@@ -2,39 +2,53 @@
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <!-- Opt-in (NU1011): CPM refuses floating PackageVersion items unless
-         this is on. The float is deliberate and bounded to the y segment —
-         see the one-party ItemGroup below. -->
+         this is on. The float is deliberate and bounded to the last segment
+         (the rule is written out beside the Pico* group below). -->
     <CentralPackageFloatingVersionsEnabled>true</CentralPackageFloatingVersionsEnabled>
+    <!-- Transitive pinning: a PackageVersion entry also governs the package
+         when it arrives transitively, raising it to the central version, so a
+         dependency's floor cannot resolve below what the center declares.
+         Without this the center only steers direct edges, and a transitive
+         arrival is free to settle anywhere at or above its own floor.
+         Measured, not assumed: with a central TUnit.Assertions 1.84.0 against
+         a 1.83.8 transitive floor, this switch resolves 1.84.0 and without it
+         the lock stays at 1.83.8. Note the "CentralTransitive" type in the lock
+         files is NOT this switch: NuGet writes that marker for any transitive
+         package that has a central entry, flag or no flag. -->
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
   <ItemGroup>
-    <PackageVersion Include="TUnit" Version="1.83.8" />
+    <!-- Third-party, <major>.<minor>.<patch>: float the patch segment. TUnit's
+         minor line (1.83) is its compatibility promise, so 1.83.* moves only
+         the fixes inside that line. -->
+    <PackageVersion Include="TUnit" Version="1.83.*" />
   </ItemGroup>
   <ItemGroup>
-    <!-- PicoHtmx depends on PicoNode.Http + PicoNode.Web (PicoNode repo,
-         network/web layers; deliberately not PicoWeb — see PicoHtmx.csproj).
+    <!-- Floating rule, the only authoritative one: float the LAST segment,
+         because that is the segment a release promises will not break.
+           one-party Pico*  <year>.<x>.<y>          -> <year>.<x>.*
+           official/3rd     <major>.<minor>.<patch> -> <major>.<minor>.*
+         PicoHex versions read <year>.<x>.<y> where x+1 means the public API
+         changed and y+1 means it did not, so '2026.<x>.*' can pick up a y bump
+         and can never pick up an x bump. Never write '2026.*': it would accept
+         a new x silently.
 
-         PicoHex versions are <year>.<x>.<y>: x+1 = the public API changed,
-         y+1 = it did not. '2026.<x>.*' is therefore the only safe floating
-         level ('2026.*' is forbidden) — and only for packages that inject no
-         MSBuild analyzer / source generator, because a generator is a
-         build-time contract whose minor line must stay pinned.
-
-         Classified mechanically per package with
-           unzip -l ~/.nuget/packages/<id>/<ver>/*.nupkg | grep -c analyzers/dotnet
-           PicoNode.Http, PicoNode.Web : 0 analyzers, no build/buildTransitive props
-             -> y-float.
-           PicoWeb : 2 analyzers (Controllers.Gen, PicoWeb.Gen) plus
-             buildTransitive/PicoWeb.props that registers them in every consumer
-             -> keep exact.
-           PicoJetson : 1 analyzer (PicoJetson.Gen) plus build/PicoJetson.targets
-             that sets InterceptorsNamespaces -> keep exact. -->
+         The rule holds for the analyzer-carrying packages too. PicoWeb ships
+         Controllers.Gen + PicoWeb.Gen behind buildTransitive/PicoWeb.props and
+         PicoJetson ships PicoJetson.Gen behind build/PicoJetson.targets, so a y
+         bump does change the code a consumer compiles; the versioning contract
+         says that change is not a breaking public API change, and the gate is
+         the build, because the float only moves inside a deps-refresh PR
+         (re-evaluate plus a full locked CI run), never silently mid-run. -->
+    <PackageVersion Include="PicoJetson" Version="2026.13.*" />
+    <!-- PicoHtmx links PicoNode.Http + PicoNode.Web when the PicoNode repo is
+         not checked out as a sibling (package path); with the sibling present
+         they are project references and these two entries do not apply. -->
     <PackageVersion Include="PicoNode.Http" Version="2026.6.*" />
     <PackageVersion Include="PicoNode.Web" Version="2026.6.*" />
-    <PackageVersion Include="PicoJetson" Version="2026.13.3" />
     <!-- PicoHtmx.Sample runs on a full PicoWeb app (WebApp/WebServer); the
-         module itself deliberately does not reference PicoWeb. Pinned for the
-         reason above. -->
-    <PackageVersion Include="PicoWeb" Version="2026.6.0" />
+         PicoHtmx module itself deliberately does not reference PicoWeb. -->
+    <PackageVersion Include="PicoWeb" Version="2026.6.*" />
   </ItemGroup>
   <PropertyGroup>
     <!-- Sibling PicoUI modules consumed as packages when
@@ -45,7 +59,9 @@
          sibling DLL with every pipeline stage green.
          Release packs inject -p:PicoMarkdownVersion=<tag> -p:PicoMermaidVersion=<tag>
          (.github/workflows/release.yml, tools/release-build.sh); the defaults
-         below keep local development on the last published siblings. -->
+         below keep local development on the last published siblings.
+         Exempt from the float above: the release pack injects the version it is
+         publishing, so a float here would be overwritten by the tag anyway. -->
     <PicoMarkdownVersion Condition="'$(PicoMarkdownVersion)' == ''">2026.9.0</PicoMarkdownVersion>
     <PicoMermaidVersion Condition="'$(PicoMermaidVersion)' == ''">2026.9.0</PicoMermaidVersion>
   </PropertyGroup>
