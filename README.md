@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/picohex.svg" alt="PicoHex" width="120"></p>
+
 # PicoUI
 
 **AOT-first UI & rendering toolkit for .NET** — server-rendered HTML/HTMX
