@@ -41,19 +41,11 @@ jobs:
           fetch-depth: 0
 
       # MUST mirror ci.yml, or the refresh would resolve a DIFFERENT graph than
-      # the committed lock files describe. With PicoNode checked out next to this
-      # repo, Directory.Build.props sets UseSiblingProjectReferences=true and the
-      # build links sibling SOURCE; PicoNode.Http / PicoNode.Web are then not
-      # packages at all, so those two floats do not even appear in most locks.
-      # Without the sibling the package graph is resolved instead and every lock
-      # file is rewritten into something ci.yml (locked mode) rejects.
-      - name: Checkout PicoNode (sibling)
-        uses: actions/checkout@v4
-        with:
-          repository: PicoHex/PicoNode
-          path: ../PicoNode
-          fetch-depth: 1
-
+      # the committed lock files describe. Both jobs now restore the same fully
+      # packaged graph from a bare checkout: cross-repo dependencies
+      # (PicoNode.Http / PicoNode.Web / PicoWeb) are packages here exactly as
+      # they are for a consumer, so their floats resolve in these locks like any
+      # other and no out-of-repository source can change what gets written.
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
@@ -76,9 +68,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Only lock files count: the sibling PicoNode checkout lives outside
-          # this repository, so a refresh that also rewrote ITS locks is invisible
-          # here (and uncommittable) by construction.
+          # Only lock files count: every project in the graph is in this
+          # repository, so a refreshed lock is the only thing a re-evaluate can
+          # move and the only thing this PR may carry.
           if [ -z "$(git status --porcelain -- '*packages.lock.json')" ]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "::notice::the floats still resolve to the committed versions — nothing to do"

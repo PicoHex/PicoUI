@@ -250,14 +250,12 @@ mkdir -p "$PKGS"
 say "output:     $OUT"
 
 # ------------------------------------------------------------------ build
-# Pack per project (not via the solution) for the reason recorded in ci.yml: a
-# solution build dispatches the out-of-solution sibling projects with their own
-# configuration, so PicoUI Release outputs would link Debug siblings.
+# Pack per project (not via the solution) for the reason recorded in ci.yml: it
+# keeps the restore and the Release configuration in one explicit place.
 #
-# UseSiblingProjectReferences=false keeps PicoHtmx on its pinned PicoNode
-# packages instead of the sibling checkout — the dependency graph release.yml
-# ships, and the only one that cannot write object files into the *other*
-# repository.
+# Cross-repo dependencies (PicoNode.Http / PicoNode.Web / PicoWeb) are always
+# packages, so nothing here can build or write into the PicoNode repository;
+# that is the dependency graph release.yml ships.
 #
 # UseProjectReferences=false is the second half of that: the sibling PicoUI
 # modules (PicoMarkdown/PicoMermaid) are consumed as PACKAGES, so their version
@@ -271,7 +269,6 @@ pack_args=(-c Release -o "$PKGS" -p:Version="$VERSION"
            -p:PicoMarkdownVersion="$VERSION"
            -p:PicoMermaidVersion="$VERSION"
            -p:RestoreAdditionalProjectSources="$PKGS"
-           -p:UseSiblingProjectReferences=false
            --artifacts-path "$WORK")
 
 shopt -s nullglob

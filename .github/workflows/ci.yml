@@ -43,16 +43,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      # PicoHtmx references PicoWeb as a sibling project when the PicoNode
-      # repo is checked out next to this one (same layout as local dev and
-      # as the PicoAgent/PicoActor/PicoNode sibling-checkout convention).
-      - name: Checkout PicoNode (sibling)
-        uses: actions/checkout@v4
-        with:
-          repository: PicoHex/PicoNode
-          path: ../PicoNode
-          fetch-depth: 1
-
+      # No PicoNode checkout: cross-repo dependencies (PicoNode.Http,
+      # PicoNode.Web, PicoWeb) are consumed as published packages, always.
+      # Nothing in the build detects a sibling repo, so the graph restored
+      # here is the same graph a consumer restores.
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
@@ -68,18 +62,17 @@ jobs:
       # a re-resolved graph fails HERE instead of silently building versions
       # nobody reviewed. Moving the locks is deps-refresh.yml's job, not a
       # build's. This restore is the default (RID-less) graph the locks describe,
-      # and the sibling PicoNode checkout above is part of that graph: with it
-      # present UseSiblingProjectReferences=true, so PicoHtmx links sibling SOURCE
-      # and PicoNode.Http/PicoNode.Web are not packages at all.
+      # and that graph is fully packaged: PicoNode.Http / PicoNode.Web / PicoWeb
+      # arrive from the feed, so every node in it — cross-repo or not — is
+      # pinned by the committed locks.
       - name: Restore
         run: |
           mkdir -p artifacts/nupkg
           dotnet restore PicoUI.slnx -p:RestoreLockedMode=true
 
-      # Build per project (not via the solution): a solution build dispatches
-      # the out-of-solution sibling PicoNode projects with their default Debug
-      # configuration, so PicoUI Release outputs would link Debug PicoNode.
-      # Per-project builds propagate -c Release to project references.
+      # Build per project (not via the solution): it keeps the restore above and
+      # the Release configuration in one explicit place, and no project can pull
+      # an out-of-repository build in with a configuration of its own.
       #
       # tests/* is built here on purpose: every Test step below runs with
       # --no-build, which is a contract that the binary already exists. Leaving
@@ -110,9 +103,8 @@ jobs:
       # trim-sensitive path).
       #
       # These publishes restore again, deliberately NOT locked: `-r <rid>` and
-      # `-p:PublishAot=true` reshape the graph, and the Htmx one adds
-      # `-p:UseSiblingProjectReferences=false` (a fully packaged graph) — one
-      # packages.lock.json can only describe the RID-less default build. They run
+      # `-p:PublishAot=true` reshape the graph — one packages.lock.json can only
+      # describe the RID-less default build. They run
       # after every locked restore in this job and never feed one, so nothing
       # unguarded reaches the compile graph; they only touch this run's tree.
       - name: AOT publish validation (PicoMarkdown.Sample)
@@ -124,12 +116,13 @@ jobs:
       - name: AOT publish validation (PicoTui.Sample)
         run: dotnet publish samples/PicoTui.Sample/PicoTui.Sample.csproj -c Release -r ${{ matrix.rid }} -p:PublishAot=true
 
-      # The sibling layout cannot AOT-publish this sample: -p:PublishAot=true is
-      # a global property and flows into PicoNode's netstandard2.0 source-generator
-      # projects (NETSDK1207). Publish against the published PicoNode packages;
-      # sibling integration is covered by the build/test steps above.
+      # PicoHtmx.Sample publishes against the same published PicoNode packages
+      # every other step uses, so no extra switch is needed. (A sibling-source
+      # build of this sample could not AOT-publish at all: -p:PublishAot=true is
+      # a global property and would flow into PicoNode's netstandard2.0
+      # source-generator projects, NETSDK1207.)
       - name: AOT publish validation (PicoHtmx.Sample)
-        run: dotnet publish samples/PicoHtmx.Sample/PicoHtmx.Sample.csproj -c Release -r ${{ matrix.rid }} -p:PublishAot=true -p:UseSiblingProjectReferences=false
+        run: dotnet publish samples/PicoHtmx.Sample/PicoHtmx.Sample.csproj -c Release -r ${{ matrix.rid }} -p:PublishAot=true
 
       - name: Run AOT-published Markdown sample (linux-x64 smoke)
         if: matrix.rid == 'linux-x64'
