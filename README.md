@@ -19,9 +19,9 @@ serialization, no runtime code generation).
 Each module is **independent** — use one, some, or all. `PicoHtmx` is the only
 module with external dependencies: `PicoNode.Http` + `PicoNode.Web` (PicoNode
 repo, HTTP/web layers; deliberately not `PicoWeb`, which injects source
-generators into every consumer) plus `PicoJetson` for JSON writing. Local
-development uses sibling project references when `../PicoNode` is checked out;
-otherwise the published packages are used.
+generators into every consumer) plus `PicoJetson` for JSON writing. Those are
+consumed as published packages, always — a checkout of `../PicoNode` does not
+change the graph, so local development builds exactly what a consumer restores.
 
 ## Quick Start
 

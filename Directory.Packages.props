@@ -41,9 +41,9 @@
          the build, because the float only moves inside a deps-refresh PR
          (re-evaluate plus a full locked CI run), never silently mid-run. -->
     <PackageVersion Include="PicoJetson" Version="2026.13.*" />
-    <!-- PicoHtmx links PicoNode.Http + PicoNode.Web when the PicoNode repo is
-         not checked out as a sibling (package path); with the sibling present
-         they are project references and these two entries do not apply. -->
+    <!-- PicoHtmx links PicoNode.Http + PicoNode.Web, always as packages: this
+         is the only path they are consumed by, so these two entries always
+         apply and always appear in src/PicoHtmx/packages.lock.json. -->
     <PackageVersion Include="PicoNode.Http" Version="2026.6.*" />
     <PackageVersion Include="PicoNode.Web" Version="2026.6.*" />
     <!-- PicoHtmx.Sample runs on a full PicoWeb app (WebApp/WebServer); the

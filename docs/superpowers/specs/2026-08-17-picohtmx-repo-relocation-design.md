@@ -3,6 +3,7 @@
 > **Date:** 2026-08-17
 > **Status:** Implemented (Phase 0 landed in 9bf69f6 "refactor(htmx): import PicoHtmx module from the PicoNode repo")
 > **Note:** Phase 0 (relocation) is DONE and committed. Remaining work is the htmx-pattern-extraction phases (see plan).
+> **Superseded in part (2026-11-12):** Decision 3 (the conditional sibling/package switch) no longer exists — the cross-repo dependency is package-only, and the token it was named after is gone from the build. The text below stays as the record of the 2026-08-17 decision, not as a description of the current build.
 > **Scope:** Move the PicoHtmx module (source + tests) from the PicoNode repo into the PicoAgent repo, next to the other UI toolkits (PicoMarkdown / PicoMermaid / PicoTui). Prerequisite (Phase 0) for the htmx-pattern-extraction work.
 
 ## Problem
