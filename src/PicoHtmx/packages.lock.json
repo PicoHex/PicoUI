@@ -2,6 +2,12 @@
   "version": 2,
   "dependencies": {
     "net10.0": {
+      "Microsoft.DotNet.ILCompiler": {
+        "type": "Direct",
+        "requested": "[10.0.15, )",
+        "resolved": "10.0.15",
+        "contentHash": "MjeBT/P5YgUuXfwSbI3ms+F5DkQ2+ilynoHE2jA/Kto//MaE/wtP5EveCAL8abpxFGw9tlHNTAV1j60Wh1oLqg=="
+      },
       "Microsoft.NET.ILLink.Tasks": {
         "type": "Direct",
         "requested": "[10.0.15, )",
@@ -17,43 +23,69 @@
           "PicoSerDe.Core": "2026.13.3"
         }
       },
+      "PicoNode.Http": {
+        "type": "Direct",
+        "requested": "[2026.6.*, )",
+        "resolved": "2026.6.1",
+        "contentHash": "+rD+X1XASGzyUHQffZymyQkC1Meezl5j7j75G4kvPS/sx2kGfxKu12hpz2oBdTNGEQKLFpTmIYTAMVD6O598mA==",
+        "dependencies": {
+          "PicoLog.Abs": "2026.11.0",
+          "PicoNode.Abs": "2026.6.1"
+        }
+      },
+      "PicoNode.Web": {
+        "type": "Direct",
+        "requested": "[2026.6.*, )",
+        "resolved": "2026.6.1",
+        "contentHash": "NfpDGTsIbyfh8/sr+2ORijXPekl2WwJPwRojZ24NoZzQdkoVvvxUqadi1KRrZ8/Gk7szaP+deanxXokkhF1OVg==",
+        "dependencies": {
+          "PicoDI.Abs": "2026.11.0",
+          "PicoLog.Abs": "2026.11.0",
+          "PicoNode.Abs": "2026.6.1",
+          "PicoNode.Http": "2026.6.1",
+          "PicoNode.Web.Session.Abs": "2026.6.1"
+        }
+      },
       "PicoDI.Abs": {
         "type": "Transitive",
-        "resolved": "2026.11.1",
-        "contentHash": "xehIWfCaRpVzFWxvg3C7/65pqkpD/mY4b2S4dwk4H2hWQNbZNe1/ZAFhEvre7OyI2srI6WRjJGPCElSVgEHIFA=="
+        "resolved": "2026.11.0",
+        "contentHash": "AaZOvYaf7UdlIKLaUFAD+PL1g4dY/27DUnZGzAxdNtXGv4hSgj+mIu9XJ8zlrpbn7bZo5QaRuQKirMTzDUHcXA=="
       },
       "PicoLog.Abs": {
         "type": "Transitive",
-        "resolved": "2026.11.1",
-        "contentHash": "58IIOrC5CUXtDpHplyNo9juFJ81sXyOLweAHB8PFKAHbx0NEKXXqjWH7osrAHlnfygs4U/oL2VSJV3/vXMbe4w=="
+        "resolved": "2026.11.0",
+        "contentHash": "/RDWj/WIv4JyhQMNi58uCA1ZXM4HI5Qmj4eC0o4nNPnaai0QQzdcuU8+SchnWWcHm4aGeRuna999Gylv6cDOGw=="
+      },
+      "PicoNode.Abs": {
+        "type": "Transitive",
+        "resolved": "2026.6.1",
+        "contentHash": "1WYhUfs1C1cnPim1UBzUjycjpir1uNDwbHNzXaFHNc59FSObC/vIGuFj22C3QP4T1CHaAVMJlvAj6ImRf8US3Q=="
+      },
+      "PicoNode.Web.Session.Abs": {
+        "type": "Transitive",
+        "resolved": "2026.6.1",
+        "contentHash": "Sx5Hc+bhUFPOl6pSXS6DvisJGrE3SeO7ckrnvdZhFHSujxwEv225FkRwmeICSMwlTJLdqCRQ3cTwnhISfDDr8w=="
       },
       "PicoSerDe.Core": {
         "type": "Transitive",
         "resolved": "2026.13.3",
         "contentHash": "iIAxCzEyZOkUgOUha5nt1reaxO/I08DnyBTtyPil5iq49fK6AZPPiRUv14qD/kmDAsBkQnf5HYLNkWbb8PLmeA=="
-      },
-      "piconode.abs": {
-        "type": "Project"
-      },
-      "piconode.http": {
-        "type": "Project",
+      }
+    },
+    "net10.0/win-x64": {
+      "Microsoft.DotNet.ILCompiler": {
+        "type": "Direct",
+        "requested": "[10.0.15, )",
+        "resolved": "10.0.15",
+        "contentHash": "MjeBT/P5YgUuXfwSbI3ms+F5DkQ2+ilynoHE2jA/Kto//MaE/wtP5EveCAL8abpxFGw9tlHNTAV1j60Wh1oLqg==",
         "dependencies": {
-          "PicoLog.Abs": "[2026.11.*, )",
-          "PicoNode.Abs": "[0.0.0-dev, )"
+          "runtime.win-x64.Microsoft.DotNet.ILCompiler": "10.0.15"
         }
       },
-      "piconode.web": {
-        "type": "Project",
-        "dependencies": {
-          "PicoDI.Abs": "[2026.11.*, )",
-          "PicoLog.Abs": "[2026.11.*, )",
-          "PicoNode.Abs": "[0.0.0-dev, )",
-          "PicoNode.Http": "[0.0.0-dev, )",
-          "PicoNode.Web.Session.Abs": "[0.0.0-dev, )"
-        }
-      },
-      "piconode.web.session.abs": {
-        "type": "Project"
+      "runtime.win-x64.Microsoft.DotNet.ILCompiler": {
+        "type": "Transitive",
+        "resolved": "10.0.15",
+        "contentHash": "WEtOJ41ItA7fJ+pqQFYgCmZxiX5d6AByfLWbifqEjyjkfFXmD9/T9V7xTwrvh5OxkJkBhnZsygcdU0Al9MNcVw=="
       }
     }
   }
