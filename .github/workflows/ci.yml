@@ -97,6 +97,29 @@ jobs:
       - name: Test PicoHtmx
         run: dotnet test --project tests/PicoHtmx.Tests/PicoHtmx.Tests.csproj -c Release --no-build
 
+      # The committed packages.lock.json files are a REVIEWED artifact: they are
+      # the only thing that makes the y-floating versions in
+      # Directory.Packages.props reproducible, and deps-refresh.yml — not a build
+      # — is what moves them. So a build step that rewrites one is a defect, not
+      # a refresh: commit b4d6423 shipped exactly that rewrite as if it were the
+      # fix, and every later locked Restore then failed NU1004 on four of the five
+      # RIDs. Nobody notices a lock move that arrives inside a green run, so the
+      # run must not be green. This guard fails the job on any tracked lock a
+      # build or test step rewrote, and on any lock file that appeared from
+      # nowhere: `git status --porcelain` reports modified tracked files (what
+      # `git diff --exit-code` reports) plus untracked ones.
+      - name: Lock graph guard (after build and tests)
+        shell: bash
+        run: |
+          changed=$(git status --porcelain -- '*packages.lock.json')
+          if [ -n "$changed" ]; then
+            echo "::error::a build or test step rewrote the package lock graph"
+            echo "$changed"
+            echo "The committed locks are the reviewed graph; only deps-refresh.yml may move them."
+            echo "If this came from a local AOT publish: git checkout -- '*/packages.lock.json' and publish with -p:NuGetLockFilePath=obj/publish-graph.lock.json (docs/releasing.md)."
+            exit 1
+          fi
+
       # AOT validation on the samples: full ILC publish + native link, plus
       # run smokes on linux-x64 (Markdown/Mermaid run standalone; the Htmx
       # sample is served and probed because its attribute writer is the
@@ -106,23 +129,49 @@ jobs:
       # `-p:PublishAot=true` reshape the graph — one packages.lock.json can only
       # describe the RID-less default build. They run
       # after every locked restore in this job and never feed one, so nothing
-      # unguarded reaches the compile graph; they only touch this run's tree.
+      # unguarded reaches the compile graph.
+      #
+      # -p:NuGetLockFilePath=obj/publish-graph.lock.json is NOT decoration. An
+      # implicit restore here writes back the lock it was given, so an unflagged
+      # publish rewrote 8 of the 12 committed locks into a RID + ILCompiler shape
+      # on every run — byte-identical to the b4d6423 regression, i.e. the old
+      # accident recreated itself. `-p:RestorePackagesWithLockFile=false`, the
+      # obvious switch, cannot be used: NuGet rejects it with NU1005 while a lock
+      # file exists. Redirecting the lock path is the supported way to keep a
+      # lock-shaped restore out of a committed file — the RID graph lands beside
+      # the other build output in obj/ (git-ignored) and the committed locks stay
+      # exactly as reviewed.
       - name: AOT publish validation (PicoMarkdown.Sample)
-        run: dotnet publish samples/PicoMarkdown.Sample/PicoMarkdown.Sample.csproj -c Release -r ${{ matrix.rid }} -p:PublishAot=true
+        run: dotnet publish samples/PicoMarkdown.Sample/PicoMarkdown.Sample.csproj -c Release -r ${{ matrix.rid }} -p:PublishAot=true -p:NuGetLockFilePath=obj/publish-graph.lock.json
 
       - name: AOT publish validation (PicoMermaid.Sample)
-        run: dotnet publish samples/PicoMermaid.Sample/PicoMermaid.Sample.csproj -c Release -r ${{ matrix.rid }} -p:PublishAot=true
+        run: dotnet publish samples/PicoMermaid.Sample/PicoMermaid.Sample.csproj -c Release -r ${{ matrix.rid }} -p:PublishAot=true -p:NuGetLockFilePath=obj/publish-graph.lock.json
 
       - name: AOT publish validation (PicoTui.Sample)
-        run: dotnet publish samples/PicoTui.Sample/PicoTui.Sample.csproj -c Release -r ${{ matrix.rid }} -p:PublishAot=true
+        run: dotnet publish samples/PicoTui.Sample/PicoTui.Sample.csproj -c Release -r ${{ matrix.rid }} -p:PublishAot=true -p:NuGetLockFilePath=obj/publish-graph.lock.json
 
       # PicoHtmx.Sample publishes against the same published PicoNode packages
-      # every other step uses, so no extra switch is needed. (A sibling-source
+      # every other step uses, so no sibling-source switch is needed. (A
       # build of this sample could not AOT-publish at all: -p:PublishAot=true is
       # a global property and would flow into PicoNode's netstandard2.0
       # source-generator projects, NETSDK1207.)
       - name: AOT publish validation (PicoHtmx.Sample)
-        run: dotnet publish samples/PicoHtmx.Sample/PicoHtmx.Sample.csproj -c Release -r ${{ matrix.rid }} -p:PublishAot=true
+        run: dotnet publish samples/PicoHtmx.Sample/PicoHtmx.Sample.csproj -c Release -r ${{ matrix.rid }} -p:PublishAot=true -p:NuGetLockFilePath=obj/publish-graph.lock.json
+
+      # Same guard as the build/test one, placed after the only steps that reshape
+      # the graph on purpose. Without it an AOT publish could rewrite the locks
+      # and still leave a green run; with it, a future edit that drops the flag
+      # fails here instead of in someone's next locked restore.
+      - name: Lock graph guard (after AOT publishes)
+        shell: bash
+        run: |
+          changed=$(git status --porcelain -- '*packages.lock.json')
+          if [ -n "$changed" ]; then
+            echo "::error::an AOT publish rewrote the package lock graph"
+            echo "$changed"
+            echo "The publish is missing -p:NuGetLockFilePath=obj/publish-graph.lock.json."
+            exit 1
+          fi
 
       - name: Run AOT-published Markdown sample (linux-x64 smoke)
         if: matrix.rid == 'linux-x64'
