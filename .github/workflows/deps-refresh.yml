@@ -5,7 +5,7 @@
 # pinned because their nupkgs inject source generators into every consumer. A
 # float only moves when a restore re-resolves it, and ci.yml restores in LOCKED
 # mode, so without this job the floats would freeze at whatever the committed
-# packages.lock.json files say and the policy would be decoration. Weekly:
+# packages.lock.json files say and the policy would be decoration. On demand:
 # `dotnet restore --force-evaluate` re-resolves every float, and if the lock
 # files moved this commits them to a bot-owned branch and opens (or updates) a
 # PR. Deliberately does NOT build — the PR's own ci run is the gate, and a
@@ -15,11 +15,6 @@
 name: deps-refresh
 
 on:
-  schedule:
-    # Mondays, 04:23 UTC. Off the hour on purpose (:00 is the cron stampede) and
-    # off PicoNode/PicoActor/PicoSerDe's minute so the sibling repos' refreshes
-    # do not all wake at once.
-    - cron: "23 4 * * 1"
   workflow_dispatch:
 
 concurrency:
@@ -137,7 +132,7 @@ jobs:
             '' \
             '`PicoWeb` and `PicoJetson` cannot appear here: they are pinned because their nupkgs inject source generators into every consumer.' \
             '' \
-            'Close without merging to keep the current pins until the next weekly run.')
+            'Close without merging to keep the current pins until the next pre-release refresh.')
 
           gh pr create --head "$branch" --base "$BASE_BRANCH" \
             --title "build(deps): refresh packages.lock.json" \
