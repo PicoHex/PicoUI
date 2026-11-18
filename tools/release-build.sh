@@ -249,6 +249,27 @@ mkdir -p "$PKGS"
 
 say "output:     $OUT"
 
+# --------------------------------------------- the local feed must exist first
+# NuGet.config declares its `local` source as a RELATIVE path (`artifacts/nupkg`,
+# resolved against the config file, i.e. $REPO_ROOT/artifacts/nupkg) and that
+# directory is not in git. NuGet does not ignore a missing local source -- it is
+# a hard NU1301 on every restore:
+#     error NU1301: The local source '<repo>/artifacts/nupkg' doesn't exist.
+# So a fresh clone could not restore at all, and this script failed at its very
+# first restore (the test gate below) with exit 4 before it ever packed anything.
+#
+# The two workflows create that directory themselves (ci.yml:72, release.yml:87);
+# this is the same directory for the LOCAL half -- the path those workflows never
+# run. `artifacts/` is gitignored (.gitignore:65), so creating it leaves the
+# working tree clean and R2 above still passes on the next run.
+#
+# This is NOT $PKGS and does not replace it: --artifacts-path moves bin/obj and
+# the packed output outside the tree, but which sources a restore consults is
+# fixed by nuget.config, so the in-repo directory has to exist even though this
+# script writes nothing into it.
+mkdir -p "$REPO_ROOT/artifacts/nupkg" \
+    || refuse 4 "cannot create the local NuGet source $REPO_ROOT/artifacts/nupkg -- nuget.config declares it as a relative source and NuGet fails with NU1301 when it is absent."
+
 # ------------------------------------------------------------------ build
 # Pack per project (not via the solution) for the reason recorded in ci.yml: it
 # keeps the restore and the Release configuration in one explicit place.
