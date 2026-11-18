@@ -15,6 +15,21 @@
           "PicoMermaid": "[0.0.0-dev, )"
         }
       }
+    },
+    "net11.0": {
+      "picomarkdown": {
+        "type": "Project"
+      },
+      "picomermaid": {
+        "type": "Project"
+      },
+      "picotui": {
+        "type": "Project",
+        "dependencies": {
+          "PicoMarkdown": "[0.0.0-dev, )",
+          "PicoMermaid": "[0.0.0-dev, )"
+        }
+      }
     }
   }
 }

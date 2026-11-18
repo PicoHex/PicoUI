@@ -49,7 +49,7 @@ jobs:
       # here is the same graph a consumer restores.
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 10.0.x
+          dotnet-version: 11.0.x
 
       - name: Install Linux AOT prerequisites
         if: startsWith(matrix.rid, 'linux-')
@@ -141,14 +141,19 @@ jobs:
       # lock-shaped restore out of a committed file — the RID graph lands beside
       # the other build output in obj/ (git-ignored) and the committed locks stay
       # exactly as reviewed.
+      #
+      # -f net10.0 is not decoration either: the projects multi-target
+      # net10.0;net11.0, and a publish that also takes `-r <rid>` must name ONE
+      # framework (there is no single RID graph for two of them). net10.0 is the
+      # TFM this repository ships and the one the smoke steps below run.
       - name: AOT publish validation (PicoMarkdown.Sample)
-        run: dotnet publish samples/PicoMarkdown.Sample/PicoMarkdown.Sample.csproj -c Release -r ${{ matrix.rid }} -p:PublishAot=true -p:NuGetLockFilePath=obj/publish-graph.lock.json
+        run: dotnet publish samples/PicoMarkdown.Sample/PicoMarkdown.Sample.csproj -c Release -f net10.0 -r ${{ matrix.rid }} -p:PublishAot=true -p:NuGetLockFilePath=obj/publish-graph.lock.json
 
       - name: AOT publish validation (PicoMermaid.Sample)
-        run: dotnet publish samples/PicoMermaid.Sample/PicoMermaid.Sample.csproj -c Release -r ${{ matrix.rid }} -p:PublishAot=true -p:NuGetLockFilePath=obj/publish-graph.lock.json
+        run: dotnet publish samples/PicoMermaid.Sample/PicoMermaid.Sample.csproj -c Release -f net10.0 -r ${{ matrix.rid }} -p:PublishAot=true -p:NuGetLockFilePath=obj/publish-graph.lock.json
 
       - name: AOT publish validation (PicoTui.Sample)
-        run: dotnet publish samples/PicoTui.Sample/PicoTui.Sample.csproj -c Release -r ${{ matrix.rid }} -p:PublishAot=true -p:NuGetLockFilePath=obj/publish-graph.lock.json
+        run: dotnet publish samples/PicoTui.Sample/PicoTui.Sample.csproj -c Release -f net10.0 -r ${{ matrix.rid }} -p:PublishAot=true -p:NuGetLockFilePath=obj/publish-graph.lock.json
 
       # PicoHtmx.Sample publishes against the same published PicoNode packages
       # every other step uses, so no sibling-source switch is needed. (A
@@ -156,7 +161,7 @@ jobs:
       # a global property and would flow into PicoNode's netstandard2.0
       # source-generator projects, NETSDK1207.)
       - name: AOT publish validation (PicoHtmx.Sample)
-        run: dotnet publish samples/PicoHtmx.Sample/PicoHtmx.Sample.csproj -c Release -r ${{ matrix.rid }} -p:PublishAot=true -p:NuGetLockFilePath=obj/publish-graph.lock.json
+        run: dotnet publish samples/PicoHtmx.Sample/PicoHtmx.Sample.csproj -c Release -f net10.0 -r ${{ matrix.rid }} -p:PublishAot=true -p:NuGetLockFilePath=obj/publish-graph.lock.json
 
       # Same guard as the build/test one, placed after the only steps that reshape
       # the graph on purpose. Without it an AOT publish could rewrite the locks

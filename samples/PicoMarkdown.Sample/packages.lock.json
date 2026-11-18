@@ -5,6 +5,11 @@
       "picomarkdown": {
         "type": "Project"
       }
+    },
+    "net11.0": {
+      "picomarkdown": {
+        "type": "Project"
+      }
     }
   }
 }

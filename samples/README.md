@@ -11,10 +11,10 @@ targets in CI (`PublishAot=true` on all five RIDs):
 | `PicoHtmx.Sample` | PicoWeb app serving a full page + an htmx fragment (`Layout.Page`, `H.*`, `Htmx.Html`) |
 
 ```bash
-dotnet run --project samples/PicoMarkdown.Sample
-dotnet run --project samples/PicoMermaid.Sample
-dotnet run --project samples/PicoTui.Sample        # TTY required
-dotnet run --project samples/PicoHtmx.Sample       # prints its listen URL
+dotnet run --project samples/PicoMarkdown.Sample -f net10.0
+dotnet run --project samples/PicoMermaid.Sample -f net10.0
+dotnet run --project samples/PicoTui.Sample -f net10.0        # TTY required
+dotnet run --project samples/PicoHtmx.Sample -f net10.0       # prints its listen URL
 ```
 
 The consuming product (`PicoAgent.Htmx` / `PicoAgent.Tui`) carries the larger

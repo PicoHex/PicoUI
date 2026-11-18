@@ -77,7 +77,7 @@ Keep the RID graph out of the repository by publishing with a redirected lock
 path:
 
 ```bash
-dotnet publish samples/PicoHtmx.Sample -c Release -r win-x64 -p:PublishAot=true \
+dotnet publish samples/PicoHtmx.Sample -c Release -f net10.0 -r win-x64 -p:PublishAot=true \
   -p:NuGetLockFilePath=obj/publish-graph.lock.json
 ```
 

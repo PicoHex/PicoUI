@@ -48,7 +48,7 @@ jobs:
       # other and no out-of-repository source can change what gets written.
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 10.0.x
+          dotnet-version: 11.0.x
 
       # NuGet.config maps a local folder feed (artifacts/nupkg); it must exist
       # before restore or NuGet fails with NU1301 — same as ci.yml.
