@@ -189,3 +189,15 @@ jobs:
           echo "$PAGE" | grep -q 'class="logo"'
           echo "$PAGE" | grep -q '<div id="hello"></div>'
           kill %1 || true
+
+  # Dependency policy gate (R1-R7, R7b, R10 of picohex-dependency-policy).
+  # The checker is vendored: scripts/check-dependency-policy.sh carries the same
+  # bytes in every PicoHex repo and names the canonical source in its header.
+  policy:
+    name: dependency policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the dependency policy
+        run: bash scripts/check-dependency-policy.sh .
