@@ -62,7 +62,13 @@ BenchmarkDotNet.Artifacts/
 # .NET Core
 project.lock.json
 project.fragment.lock.json
-artifacts/
+# The local NuGet source (see NuGet.config) is a relative path, so the directory must
+# exist even in a fresh clone or restore fails with NU1301. Only the placeholder is
+# tracked; everything published into it stays local.
+artifacts/*
+!artifacts/nupkg/
+artifacts/nupkg/*
+!artifacts/nupkg/.gitkeep
 
 # NuGet lock files are a RECORD, not a pin. Versions float on purpose (the policy lives in
 # Directory.Packages.props), so packages.lock.json holds "which exact version did this
