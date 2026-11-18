@@ -13,15 +13,23 @@
          next to the versions they govern. Declaring this one here as well gave
          one property two sources of truth, and only the later import won. -->
 
-    <!-- Lock files pin the resolved graph so the y-floating versions in
-         Directory.Packages.props (2026.<x>.*) stay reproducible: a restore that
-         would move a floating or transitive dependency fails instead of drifting
-         silently. CI restores with -p:RestoreLockedMode=true; deps-refresh.yml
-         re-evaluates the lock weekly and opens a PR when it moves.
-         Every project this file governs is in this repository: cross-repo
-         dependencies arrive as packages, so the locks describe the whole
-         resolved graph — there is no out-of-repository project that would
-         evaluate another Directory.Build.props and escape them. -->
+    <!-- packages.lock.json is a RECORD, not a pin, and this switch is what writes it.
+
+         What floats: the DECLARATIONS in Directory.Packages.props ("which safe range"),
+         today (the y-floating 2026.<x>.* versions).
+         What this produces: the packages.lock.json a restore writes beside each project
+         ("which exact versions this restore resolved"), including the transitive nodes:
+         cross-repo dependencies arrive as packages and every project this file governs
+         is in this repository, so the record covers the whole resolved graph.
+         Where it lives: on disk, not in the repository — the file is gitignored. It stays
+         out of git because `dotnet publish` adds RID-specific entries
+         (Microsoft.DotNet.ILCompiler) to it, so a tracked lock dirtied the tree on every
+         release.
+         How to answer "which versions did that build use": the `resolved-versions`
+         artifact ci.yml uploads (one per leg), not a file in git.
+
+         Deliberately still TRUE: with this off NuGet neither writes nor reads a lock file,
+         so a restore resolves silently and leaves nothing to inspect. Untracked is not off. -->
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <!-- Never bake an implicit publish RID into the lock files. The SDK
          defaults the publish RuntimeIdentifier to the host's as soon as a

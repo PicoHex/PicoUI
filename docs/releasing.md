@@ -52,63 +52,27 @@ the only way to tell two builds of the same version apart.
 
 Only then create the annotated tag (`git tag -a v<year>.<x>.<y>`) and push it.
 
-## A local AOT publish rewrites the lock graph — do not commit it
+## The lock files are a local record, not a reviewed artifact
 
-`packages.lock.json` is a reviewed artifact: it is what makes the y-floating
-versions in `Directory.Packages.props` reproducible, and
-`.github/workflows/deps-refresh.yml` — not a build and not a developer — is the
-only thing allowed to move it.
+`packages.lock.json` is gitignored. A restore still writes one beside every
+project (`RestorePackagesWithLockFile` stays true), but it records *what that
+restore resolved*: the versions themselves float on purpose in
+`Directory.Packages.props`, and a plain restore takes the newest release inside
+each declared range. Nothing in the repository is pinned to the record, so:
 
-**A plain `dotnet publish` with a RID breaks that rule silently.** `-r <rid>`
-together with `-p:PublishAot=true` reshapes the restore graph (it pulls in
-`Microsoft.DotNet.ILCompiler` and the RID-specific runtime packs), and the
-implicit restore writes that reshaped graph straight back into the committed
-lock file. One lock file can only describe the RID-less default build, so the
-rewrite is wrong for every other platform — and because it arrives as a normal
-` M` line after a successful publish, it looks like ordinary build output.
-This is not hypothetical: an unflagged AOT publish rewrites the lock of the
-sample it publishes plus the lock of the library that sample references (two per
-sample), so publishing all four samples on a clean checkout rewrites **8 of the
-12** committed locks into a RID + ILCompiler shape — byte-for-byte identical to
-the `b4d6423` regression that had to be reverted. CI then fails `NU1004`
-(`the project's runtime identifiers have changed`) on four of its five RIDs.
+- a local AOT publish may rewrite it freely. `-r <rid>` plus
+  `-p:PublishAot=true` adds `Microsoft.DotNet.ILCompiler` and RID-specific
+  runtime packs, and that reshape simply becomes part of the local record. The
+  `-p:NuGetLockFilePath` redirection is not needed any more and is not used;
+- `git status` stays clean after a publish, and CI carries no lock graph guard,
+  because there is nothing tracked for a build to move;
+- "which exact versions did that build use" is answered by the
+  `resolved-versions` artifact `.github/workflows/ci.yml` uploads (one per leg,
+  `if: always()`, kept 30 days).
 
-Keep the RID graph out of the repository by publishing with a redirected lock
-path:
-
-```bash
-dotnet publish samples/PicoHtmx.Sample -c Release -f net10.0 -r win-x64 -p:PublishAot=true \
-  -p:NuGetLockFilePath=obj/publish-graph.lock.json
-```
-
-`obj/` is git-ignored, so the reshaped graph lands beside the other build output
-and the committed locks stay exactly as reviewed. Replace the sample and the RID
-to publish something else (the four samples are `PicoMarkdown.Sample`,
-`PicoMermaid.Sample`, `PicoTui.Sample`, `PicoHtmx.Sample`).
-
-`-p:RestorePackagesWithLockFile=false` is **not** a substitute, however obvious
-it looks: NuGet refuses it with `NU1005` (`RestorePackagesWithLockFile property
-is set to false but a packages lock file exists`) for as long as the lock file
-is there. Redirecting the path is the supported way.
-
-If you already published without the flag, every rewritten lock goes back to the
-committed graph in one step:
-
-```bash
-git checkout -- '*/packages.lock.json'
-git status --short      # must not list a packages.lock.json
-```
-
-Then re-check that the reviewed graph is still the one that restores cleanly:
-
-```bash
-dotnet restore PicoUI.slnx -p:RestoreLockedMode=true
-```
-
-CI enforces this from both ends: every AOT publish step carries the redirected
-lock path, and two *Lock graph guard* steps fail the job if any build, test or
-publish step rewrote a lock — a regression here must not be able to arrive
-inside a green run.
+What none of that can see is a **band** move: `2026.<x>.*` never resolves
+`2026.<x+1>.0`. `.github/workflows/upstream-watch.yml` (R10) reports that, and
+moving a band is a person's edit to `Directory.Packages.props` — never a bot PR.
 
 ## Why this rule exists
 
