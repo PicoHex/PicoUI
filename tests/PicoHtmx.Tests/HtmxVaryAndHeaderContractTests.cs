@@ -237,6 +237,19 @@ public sealed class HtmxHeaderContractTests
 
     private static string RepoRoot()
     {
+        // PICOUI_REPO_ROOT wins over the search below because the search stops
+        // working once the test assembly no longer lives inside the repository:
+        // `dotnet test --artifacts-path <outside>` puts the dll under
+        // <outside>/bin/<project>/<config>/<tfm>/, so walking up from
+        // AppContext.BaseDirectory never reaches a directory holding src/PicoHtmx,
+        // and this source-scan test then fails for a reason that has nothing to do
+        // with the code under test (tools/release-build.sh hit exactly this and its
+        // test gate was permanently red). Unset — the normal `dotnet test` case —
+        // keeps the old behaviour: a run started anywhere still finds the repo.
+        var fromEnv = Environment.GetEnvironmentVariable("PICOUI_REPO_ROOT");
+        if (!string.IsNullOrWhiteSpace(fromEnv))
+            return fromEnv;
+
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null)
         {
@@ -244,6 +257,9 @@ public sealed class HtmxHeaderContractTests
                 return dir.FullName;
             dir = dir.Parent;
         }
-        throw new InvalidOperationException("repository root (src/PicoHtmx) not found");
+        throw new InvalidOperationException(
+            "repository root (src/PicoHtmx) not found — set PICOUI_REPO_ROOT when the test "
+                + "assembly lives outside the repository (e.g. --artifacts-path)"
+        );
     }
 }

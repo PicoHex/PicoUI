@@ -96,6 +96,16 @@ internal static class RepoLayout
 
     private static string FindRoot()
     {
+        // Same rule as PicoHtmx.Tests.HtmxHeaderContractTests.RepoRoot(): the upward
+        // search only works while the test assembly sits inside the repository.
+        // `dotnet test --artifacts-path <outside>` places it at
+        // <outside>/bin/<project>/<config>/<tfm>/, so PicoUI.slnx is never above it and
+        // every sample test dies in this type initializer. PICOUI_REPO_ROOT (exported
+        // by tools/release-build.sh) supplies the root; unset keeps the old search.
+        var fromEnv = Environment.GetEnvironmentVariable("PICOUI_REPO_ROOT");
+        if (!string.IsNullOrWhiteSpace(fromEnv))
+            return fromEnv;
+
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null)
         {
@@ -104,7 +114,8 @@ internal static class RepoLayout
             dir = dir.Parent;
         }
         throw new InvalidOperationException(
-            $"repository root (PicoUI.slnx) not found above {AppContext.BaseDirectory}"
+            $"repository root (PicoUI.slnx) not found above {AppContext.BaseDirectory} — "
+                + "set PICOUI_REPO_ROOT when the test assembly lives outside the repository (e.g. --artifacts-path)"
         );
     }
 }

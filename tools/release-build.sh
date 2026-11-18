@@ -281,6 +281,16 @@ sibling_cores=(PicoMarkdown PicoMermaid)
 if [ "${SKIP_TESTS:-0}" != "1" ]; then
     say ""
     say "== test gate =="
+
+    # Tests that locate the repository by walking up from AppContext.BaseDirectory
+    # cannot do it here: --artifacts-path moves bin/obj — and with them the test
+    # assembly — into $WORK, which is outside the tree, so the upward search finds
+    # no src/. That made one source-scan test fail on every TFM and left this gate
+    # permanently red: the only local way to reach the pack step was SKIP_TESTS=1.
+    # The repository root is already known here ($REPO_ROOT), so hand it over
+    # instead of asking the tests to rediscover it.
+    export PICOUI_REPO_ROOT="$REPO_ROOT"
+
     tests=(tests/*/*.Tests.csproj)
     [ ${#tests[@]} -gt 0 ] || refuse 4 "no test projects found: tests/*/*.Tests.csproj matched nothing."
     for proj in "${tests[@]}"; do
