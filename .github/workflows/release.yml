@@ -133,18 +133,36 @@ jobs:
             name=$(basename "$pkg")
             nuspec=$(unzip -p "$pkg" '*.nuspec')
             declared=""
-            for id in PicoMarkdown PicoMermaid; do
-              line=$(printf '%s\n' "$nuspec" | grep -E "<dependency[^>]*id=\"$id\"" || true)
-              [ -n "$line" ] || continue
+            # A multi-target package declares each sibling dependency once per TFM
+            # group (net10.0 + net11.0 -> two <dependency> lines), so the check must
+            # be per-line: folding the matches into one string yields
+            # "2026.11.0\n2026.11.0" and can never equal VERSION.
+            tfm="(no targetFramework)"
+            while IFS= read -r line; do
+              case "$line" in
+                *'<group'*)
+                  # remember the enclosing group so a mismatch can name its TFM
+                  tfm=$(printf '%s' "$line" | sed -nE 's/^.*targetFramework="([^"]*)".*$/\1/p')
+                  [ -n "$tfm" ] || tfm="(no targetFramework)"
+                  continue
+                  ;;
+                *'<dependency'*) ;;
+                *) continue ;;
+              esac
+              id=$(printf '%s' "$line" | sed -nE 's/^.*id="([^"]*)".*$/\1/p')
+              case "$id" in
+                PicoMarkdown | PicoMermaid) ;;
+                *) continue ;;
+              esac
               declared="$declared $id"
-              ver=$(printf '%s\n' "$line" | sed -E 's/^.*version="([^"]*)".*$/\1/')
+              ver=$(printf '%s' "$line" | sed -nE 's/^.*version="([^"]*)".*$/\1/p')
               ver=${ver#\[}
               ver=${ver%\]}
               if [ "$ver" != "$VERSION" ]; then
-                echo "$name: $id = $ver (expected $VERSION)" >&2
+                echo "$name: $id = ${ver:-(no version attribute)} (expected $VERSION) [targetFramework=$tfm]" >&2
                 mismatch=1
               fi
-            done
+            done <<< "$nuspec"
             case "$name" in
               PicoTui.*)
                 for id in PicoMarkdown PicoMermaid; do
