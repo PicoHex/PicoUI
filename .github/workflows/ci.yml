@@ -68,6 +68,15 @@ jobs:
       # packaged: PicoNode.Http / PicoNode.Web / PicoWeb arrive from the feed, so
       # every node in it — cross-repo or not — comes off nuget.org.
       - name: Restore
+        # shell: bash is required here, not cosmetic. A Windows runner's default
+        # shell is pwsh, where this line is not bash: `mkdir` is an alias for
+        # New-Item, and `-p` binds to a parameter, so `mkdir -p artifacts/nupkg`
+        # becomes `New-Item -Path artifacts/nupkg -p` -- which fails the moment the
+        # directory already exists ("An item with the specified name ... already
+        # exists."). artifacts/nupkg/.gitkeep is tracked because NuGet.config points
+        # the `local` source at that relative path, so the directory now always
+        # exists on a fresh clone -- which is what made the Windows legs go red.
+        shell: bash
         run: |
           mkdir -p artifacts/nupkg
           dotnet restore PicoUI.slnx
